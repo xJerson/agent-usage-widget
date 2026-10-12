@@ -44,3 +44,12 @@ export function parseClaudeStatusline(raw: string, updatedAt: number): UsageSnap
   }
   return { agentId: CLAUDE_ID, windows, updatedAt };
 }
+
+/**
+ * Claude Code drops a window from the statusLine JSON once its resets_at has passed, so a missing window means
+ * "0%, starts at the next prompt", not "does not exist". Guarantee both standard windows (5h first, weekly second).
+ * Expired windows are kept as they are: the renderer applies the time-based reset.
+ */
+export function ensureClaudeWindows(windows: readonly UsageWindow[]): UsageWindow[] {
+  return SOURCES.map(({ minutes }) => windows.find((w) => w.minutes === minutes) ?? { minutes, usedPercent: 0, resetsAt: null });
+}

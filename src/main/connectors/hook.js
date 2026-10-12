@@ -16,6 +16,105 @@ const cp = require('child_process');
 
 const DATA_FILE = path.join(__dirname, 'claude.json');
 
+// ---- merging rate limits ------------------------------------------------------------------------------------
+// Every Claude Code session runs the statusLine, and they all write the same file. A session that has been idle
+// still carries older rate_limits, so a plain overwrite can move numbers backwards (used_percentage only ever grows
+// inside one window). Merge instead, per window:
+//   same resets_at      -> keep the higher used_percentage
+//   newer resets_at     -> a new window: take the incoming one
+//   older resets_at     -> stale: keep the stored one
+//   incoming absent     -> keep the stored one while its resets_at is still in the future
+//   resets_at in past   -> dropped (Claude Code itself drops expired windows)
+const WINDOW_KEYS = ['five_hour', 'seven_day'];
+
+function isObject(v) {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function resetsOf(w) {
+  const v = w.resets_at;
+  if (typeof v !== 'number' || !isFinite(v)) return null;
+  return v >= 1e11 ? v / 1000 : v; // tolerate milliseconds
+}
+
+function liveWindow(w, nowSec) {
+  if (!isObject(w) || typeof w.used_percentage !== 'number' || !isFinite(w.used_percentage)) return null;
+  const r = resetsOf(w);
+  return r !== null && r <= nowSec ? null : w;
+}
+
+// -> { window, fromIncoming } (window undefined when nothing live is left)
+function mergeWindow(stored, incoming, nowSec) {
+  const s = liveWindow(stored, nowSec);
+  const i = liveWindow(incoming, nowSec);
+  if (!s && !i) return { window: undefined, fromIncoming: false };
+  if (!s) return { window: i, fromIncoming: true };
+  if (!i) return { window: s, fromIncoming: false };
+  const rs = resetsOf(s);
+  const ri = resetsOf(i);
+  if (rs === null || ri === null) return { window: i, fromIncoming: true }; // cannot compare: trust the incoming
+  if (ri > rs) return { window: i, fromIncoming: true };
+  if (ri < rs) return { window: s, fromIncoming: false };
+  if (i.used_percentage >= s.used_percentage) return { window: i, fromIncoming: true };
+  return { window: s, fromIncoming: false };
+}
+
+function parseObject(text) {
+  if (typeof text !== 'string') return null;
+  try {
+    const data = JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
+    return isObject(data) ? data : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Pure. storedText: current file contents or null. Returns { text, accepted }:
+//   text     what to write (incoming top-level fields + merged rate_limits)
+//   accepted false when the incoming payload contributed nothing (every window was stale or absent); the caller then
+//            leaves the file alone, so its mtime keeps meaning "when the data last advanced".
+function mergeStatusPayload(storedText, incomingText, nowSec) {
+  const incoming = parseObject(incomingText);
+  if (!incoming) return { text: incomingText, accepted: true }; // not JSON: keep the old verbatim behaviour
+  const stored = parseObject(storedText);
+  if (!stored) return { text: incomingText, accepted: true };
+
+  const storedLimits = isObject(stored.rate_limits) ? stored.rate_limits : {};
+  const incomingLimits = isObject(incoming.rate_limits) ? incoming.rate_limits : {};
+  const limits = Object.assign({}, incomingLimits);
+  let accepted = false;
+  let any = false;
+  for (const key of WINDOW_KEYS) {
+    const m = mergeWindow(storedLimits[key], incomingLimits[key], nowSec);
+    if (m.window === undefined) delete limits[key];
+    else {
+      limits[key] = m.window;
+      any = true;
+    }
+    if (m.fromIncoming) accepted = true;
+  }
+  const out = Object.assign({}, incoming);
+  if (any || Object.keys(limits).length > 0) out.rate_limits = limits;
+  else delete out.rate_limits;
+  // identical text when the incoming payload is already the merged result (keeps the common case byte-stable)
+  return { text: JSON.stringify(out), accepted };
+}
+
+function writeMerged(file, input) {
+  try {
+    let storedText = null;
+    try {
+      storedText = fs.readFileSync(file, 'utf8');
+    } catch (e) {
+      /* no file yet */
+    }
+    const result = mergeStatusPayload(storedText, input.toString('utf8'), Date.now() / 1000);
+    if (result.accepted) writeAtomic(file, result.text);
+  } catch (e) {
+    /* never fail the statusline */
+  }
+}
+
 function parseThen(argv) {
   const i = argv.indexOf('--then');
   return i >= 0 && i + 1 < argv.length ? argv[i + 1] : null;
@@ -154,8 +253,9 @@ function runThen(command, input) {
 function main() {
   const then = parseThen(process.argv.slice(2));
   readStdin((input) => {
-    if (input.length > 0) writeAtomic(DATA_FILE, input);
+    // start the wrapped statusLine first: merging is quick, but it must never delay the user's status text
     if (then) runThen(then, input);
+    if (input.length > 0) writeMerged(DATA_FILE, input);
   });
 }
 
@@ -164,7 +264,7 @@ if (require.main === module) {
     process.exitCode = process.exitCode || 0;
   });
 }
-module.exports = { resolveGitBash };
+module.exports = { resolveGitBash, mergeStatusPayload };
 
 if (require.main === module) {
   try {

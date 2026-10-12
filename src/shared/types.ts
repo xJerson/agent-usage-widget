@@ -11,6 +11,8 @@ export interface UsageWindow {
   usedPercent: number;
   /** Epoch seconds, or null when the source does not say. */
   resetsAt: number | null;
+  /** True when the limit has been hit (100% from the data, or detected from Claude Code's own message). */
+  limitReached?: boolean;
 }
 
 export interface UsageSnapshot {

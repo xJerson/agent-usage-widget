@@ -165,6 +165,21 @@ describe('connect', () => {
   });
 });
 
+describe('hook refresh after an app update', () => {
+  it('a newer app rewrites the installed hook.js with its new content (only while connected)', async () => {
+    const oldApp = new ClaudeConnector(home, { hookSource: '// v1', now: () => NOW });
+    await oldApp.connect();
+    expect(readFileSync(hookFile, 'utf8')).toBe('// v1');
+    const newApp = new ClaudeConnector(home, { hookSource: '// v2 with merge', now: () => NOW });
+    await newApp.updateHook();
+    expect(readFileSync(hookFile, 'utf8')).toBe('// v2 with merge');
+    await newApp.disconnect();
+    writeFileSync(hookFile, 'leftover');
+    await newApp.updateHook(); // not connected: leaves the file alone
+    expect(readFileSync(hookFile, 'utf8')).toBe('leftover');
+  });
+});
+
 describe('disconnect', () => {
   it('restores the original settings byte for byte', async () => {
     writeFileSync(settingsFile, ORIGINAL);

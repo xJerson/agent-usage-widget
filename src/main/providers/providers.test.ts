@@ -29,7 +29,10 @@ describe('ClaudeProvider', () => {
     writeFileSync(file, JSON.stringify({ rate_limits: { five_hour: { used_percentage: 12, resets_at: 1_800_000_000 } } }));
     utimesSync(file, new Date(1_700_000_000_000), new Date(1_700_000_000_000));
     const snap = await new ClaudeProvider(home).read();
-    expect(snap?.windows).toEqual([{ minutes: 300, usedPercent: 12, resetsAt: 1_800_000_000 }]);
+    expect(snap?.windows).toEqual([
+      { minutes: 300, usedPercent: 12, resetsAt: 1_800_000_000 },
+      { minutes: 10080, usedPercent: 0, resetsAt: null }, // always present, even when Claude Code did not send it
+    ]);
     expect(snap?.updatedAt).toBe(1_700_000_000_000);
   });
 

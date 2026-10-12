@@ -69,9 +69,12 @@ export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel({ ent
         const r = resolveWindow(w, now);
         const [ca, cb] = statusGradient(agent, levelOf(r.usedPercent));
         return (
-          <div className="metric" key={w.minutes}>
+          <div className={`metric${r.limitReached ? ' limit' : ''}`} key={w.minutes}>
             <div className="m-top">
-              <span className="m-label">{windowLabel(w.minutes)}</span>
+              <span className="m-label">
+                {windowLabel(w.minutes)}
+                {r.limitReached && <span className="m-limit">Limit reached</span>}
+              </span>
               <span className="m-pct">
                 <span>{Math.round(r.usedPercent)}</span>
                 <small>%</small>
@@ -101,7 +104,7 @@ export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel({ ent
           </div>
         );
       })}
-      <div className="foot">{snapshot ? formatAgo(now - snapshot.updatedAt) : 'No data yet'}</div>
+      <div className="foot">{snapshot && snapshot.windows.length > 0 ? formatAgo(now - snapshot.updatedAt) : 'No data yet'}</div>
     </div>
   );
 });

@@ -37,7 +37,8 @@ export function Bubble({ entry, now, open, editing, onToggle, onEdit, consent = 
 
   const { agent, snapshot } = entry;
   const head = snapshot ? headWindow(snapshot.windows) : null;
-  const pct = head ? resolveWindow(head, now).usedPercent : 0;
+  const headState = head ? resolveWindow(head, now) : null;
+  const pct = headState?.usedPercent ?? 0;
   const [a, b] = statusGradient(agent, levelOf(pct));
   const theta = (2 * Math.PI * pct) / 100;
 
@@ -98,7 +99,7 @@ export function Bubble({ entry, now, open, editing, onToggle, onEdit, consent = 
       style={style}
       aria-expanded={open}
       aria-controls={`p-${agent.id}`}
-      aria-label={`${agent.name} usage, ${Math.round(pct)}%`}
+      aria-label={`${agent.name} usage, ${Math.round(pct)}%${headState?.limitReached ? ', limit reached' : ''}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endPointer}

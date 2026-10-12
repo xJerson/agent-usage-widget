@@ -17,15 +17,18 @@ export interface ResolvedWindow {
   resetsAtMs: number | null;
   /** True when the reset time has passed: the window is shown as 0% until the next prompt. */
   expired: boolean;
+  /** At or above 100% (or flagged) and not yet reset. */
+  limitReached: boolean;
 }
 
 /** Applies the time-based reset: once now >= resetsAt the window reads 0% and has no reset time. */
 export function resolveWindow(w: UsageWindow, nowMs: number): ResolvedWindow {
   const percent = Math.min(100, Math.max(0, w.usedPercent));
-  if (w.resetsAt === null) return { usedPercent: percent, resetsAtMs: null, expired: false };
+  const reached = percent >= 100 || w.limitReached === true;
+  if (w.resetsAt === null) return { usedPercent: percent, resetsAtMs: null, expired: false, limitReached: reached };
   const resetsAtMs = w.resetsAt * 1000;
-  if (nowMs >= resetsAtMs) return { usedPercent: 0, resetsAtMs: null, expired: true };
-  return { usedPercent: percent, resetsAtMs, expired: false };
+  if (nowMs >= resetsAtMs) return { usedPercent: 0, resetsAtMs: null, expired: true, limitReached: false };
+  return { usedPercent: percent, resetsAtMs, expired: false, limitReached: reached };
 }
 
 /** The bubble ring follows the shortest window. */

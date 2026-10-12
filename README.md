@@ -99,6 +99,25 @@ What Connect does, all under `~/.claude`:
 Other keys and the file formatting are preserved, writes are atomic and connecting twice never double-wraps. If
 `settings.json` is not valid JSON the widget refuses and leaves it alone.
 
+**Several sessions, one file.** Every Claude Code session runs the statusLine, and an idle session still carries older
+limits, so a plain overwrite could move your numbers backwards (usage only ever grows inside one window). The hook therefore
+*merges* the incoming payload into `usage-widget/claude.json`, per window (`five_hour`, `seven_day`):
+
+| Incoming window vs the stored one | Result |
+| --- | --- |
+| same `resets_at` | keep the **higher** `used_percentage` |
+| later `resets_at` (a new window) | take the incoming one |
+| earlier `resets_at` (stale session) | keep the stored one |
+| absent, stored `resets_at` still in the future | keep the stored one |
+| `resets_at` already passed | dropped |
+
+All other top-level fields come from the incoming payload. A payload that contributes nothing (every window stale or absent)
+does not touch the file, so the "Updated Xm ago" footer, which is the file's modification time, means *when the data last
+advanced*, not when some session last ran. The widget itself always shows both the 5h and the weekly card: a window Claude
+Code has dropped after its reset appears as 0% with "Starts at next prompt", and the ring follows the 5h window.
+Claude Code only learns your usage at its own responses, so the widget can lag behind the web usage page; that is a limit of
+the source (the widget does not read credentials or call any network endpoint to work around it).
+
 **Disconnect** restores the original `statusLine` exactly (or removes the key if there was none). Backups are kept.
 
 **Manual alternative.** If you prefer not to let the widget edit your settings, add this single line to your own statusline
@@ -117,6 +136,25 @@ looks for Git for Windows' `bash.exe` explicitly and never uses the WSL launcher
 | --- | --- | --- | --- |
 | Claude Code | `~/.claude` exists | `~/.claude/usage-widget/claude.json`, written by the hook | Windows of 300 and 10080 minutes from `rate_limits.five_hour` and `seven_day`. Updated after each Claude response. Without data yet, the bubble shows 0% and "Waiting for first prompt". |
 | Codex | `~/.codex/sessions` exists | The most recently active `rollout-*.jsonl` files under `~/.codex/sessions` | Reads only the tail of the 8 most recently modified files from the last 7 days and takes the `rate_limits` snapshot with the newest event timestamp. Read-only; only rate-limit fields are parsed. |
+
+**Claude plan badge.** To show the plan (for example PRO) in the Claude panel, the widget reads exactly one field,
+`oauthAccount.organizationType`, from `~/.claude.json` (the file in your home folder, not inside `~/.claude/`). It is read-only:
+the file is parsed, that single value is kept and everything else (it also holds your email and name) is dropped immediately,
+never stored, logged or displayed. The result is cached by modification time, so the file is not re-parsed on every scan.
+`~/.claude/.credentials.json` is never opened. `claude_pro` maps to PRO and anything containing "max" to MAX; any other value
+shows no badge rather than a guess. Only `claude_pro` has been checked against real data; the MAX mapping is unverified.
+
+**Limit reached.** Claude Code only reports usage at its own responses, so a window can sit at 99% when you actually hit the
+limit. When Claude Code logs its "You've hit your session limit · resets 1:30pm (...)" message, the widget shows that window at
+100% with a "Limit reached" label, the reset countdown and the reset clock time. To detect it, the widget scans
+`~/.claude/projects/<project>/<session>.jsonl` files modified in the last 6 hours (newest first, only the last 256 KB of each,
+cached by modification time) for entries flagged `isApiErrorMessage`, and keeps exactly three things from them: the entry
+timestamp, whether the text is a session or weekly limit message, and the reset text. Nothing else from the transcripts is
+stored, logged or displayed. It is read-only, and the widget makes no network calls. The "session" wording maps to the 5h
+window and "weekly" to the 7-day window (the weekly wording is not verified against a real message); any other message is
+ignored. The event applies while the window is still running (its `resets_at` from `claude.json`, or the time parsed from the
+message and its time zone when `claude.json` has no live window) and disappears at the reset. Windows that already read 100%
+or more, from Claude or from Codex, get the same "Limit reached" state.
 
 The widget never writes into `~/.codex`. It writes into `~/.claude` only after you click Connect (and on Disconnect).
 
@@ -186,7 +224,7 @@ Units: `UsageWindow.resetsAt` is epoch **seconds** (as both sources give it) and
 ## Known limits
 
 - The glass blur applies to the widget's own content only; a transparent Electron window cannot blur the desktop behind it.
-- Claude does not report its plan name in the statusline JSON, so the Claude panel shows no plan badge.
+- The Claude plan badge comes from `~/.claude.json` (see above). Only `claude_pro` is verified; other plan types (Max, Team, Enterprise) may show no badge, or MAX unverified, until checked against a real account.
 - Both sources update when the agent writes data, so the widget is near real time while you work and shows the last known value while you are idle.
 - Windows 11 is the only tested platform. There is no installer yet (no electron-builder); `npm run build` produces the runnable bundle.
 - Not yet verified on multi-monitor setups.

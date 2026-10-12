@@ -35,19 +35,38 @@ describe('resolveWindow', () => {
   const w = { minutes: 300, usedPercent: 62, resetsAt: 1_000 }; // epoch seconds
 
   it('keeps the window before the reset', () => {
-    expect(resolveWindow(w, 999_999)).toEqual({ usedPercent: 62, resetsAtMs: 1_000_000, expired: false });
+    expect(resolveWindow(w, 999_999)).toEqual({ usedPercent: 62, resetsAtMs: 1_000_000, expired: false, limitReached: false });
   });
   it('shows 0% and drops the reset once now >= resetsAt', () => {
-    expect(resolveWindow(w, 1_000_000)).toEqual({ usedPercent: 0, resetsAtMs: null, expired: true });
+    expect(resolveWindow(w, 1_000_000)).toEqual({ usedPercent: 0, resetsAtMs: null, expired: true, limitReached: false });
     expect(resolveWindow(w, 5_000_000).usedPercent).toBe(0);
   });
   it('never expires a window without a reset time', () => {
     const r = resolveWindow({ ...w, resetsAt: null }, 9e15);
-    expect(r).toEqual({ usedPercent: 62, resetsAtMs: null, expired: false });
+    expect(r).toEqual({ usedPercent: 62, resetsAtMs: null, expired: false, limitReached: false });
   });
   it('clamps out-of-range percentages', () => {
     expect(resolveWindow({ ...w, usedPercent: 140 }, 0).usedPercent).toBe(100);
     expect(resolveWindow({ ...w, usedPercent: -3 }, 0).usedPercent).toBe(0);
+  });
+});
+
+describe('resolveWindow limitReached (UI state at >= 100%)', () => {
+  const sec = 2_000_000_000;
+  it('is true at 100% or more, or when the window is flagged', () => {
+    expect(resolveWindow({ minutes: 300, usedPercent: 100, resetsAt: sec }, 0).limitReached).toBe(true);
+    expect(resolveWindow({ minutes: 300, usedPercent: 130, resetsAt: sec }, 0)).toMatchObject({ usedPercent: 100, limitReached: true });
+    expect(resolveWindow({ minutes: 300, usedPercent: 99, resetsAt: sec, limitReached: true }, 0).limitReached).toBe(true);
+  });
+  it('is false below 100% (a 99% window is not "reached")', () => {
+    expect(resolveWindow({ minutes: 300, usedPercent: 99, resetsAt: sec }, 0).limitReached).toBe(false);
+  });
+  it('is false once the window has reset, even if it was flagged', () => {
+    const r = resolveWindow({ minutes: 300, usedPercent: 100, resetsAt: 1000, limitReached: true }, 5_000_000);
+    expect(r).toEqual({ usedPercent: 0, resetsAtMs: null, expired: true, limitReached: false });
+  });
+  it('also applies to windows without a reset time (data driven, e.g. Codex)', () => {
+    expect(resolveWindow({ minutes: 300, usedPercent: 100, resetsAt: null }, 0).limitReached).toBe(true);
   });
 });
 
