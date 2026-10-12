@@ -11,6 +11,11 @@ One glass bubble per detected agent (**Claude Code** and **Codex** today). The r
 </p>
 <p align="center"><sub>Demo data (<code>npm run dev:demo</code>). Each ring fills with the 5-hour usage of its agent.</sub></p>
 
+<p align="center">
+  <img src="docs/screenshot-panel.png" alt="Agent Usage Widget with the Claude Code detail panel open: the Current session (5h) window at 24% and the Weekly (7 days) window at 42%, each with a progress bar and a reset countdown, next to the Claude Code and Codex bubbles (demo data)" width="520">
+</p>
+<p align="center"><sub>Demo data. Clicking a bubble opens the detail panel to its left, with one card per limit window.</sub></p>
+
 ## Features
 
 - **Dynamic detection.** One agent found, one bubble. Two found, two bubbles. An agent appears or disappears while the app is running and the widget follows.
