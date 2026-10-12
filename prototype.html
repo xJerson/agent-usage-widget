@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Usage Widget Prototype</title>
+<style>
+  :root {
+    --bg: #0e0d0b; --glass: rgba(34,32,29,.78); --glass-solid: #22201d;
+    --border: rgba(255,255,255,.08); --text: #f4f1ea; --muted: #9b958a; --track: rgba(255,255,255,.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; color: var(--text);
+    font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    background: radial-gradient(1200px 700px at 20% 10%, #2a2420 0%, var(--bg) 60%); }
+  .desktop { max-width: 680px; padding: 28px 20px; }
+  h1 { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+  .hint { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .controls.agents { padding-top: 10px; border-top: 1px solid var(--border); }
+  .label { width: 100%; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  button.sim { background: rgba(255,255,255,.04); color: var(--text); border: 1px solid var(--border);
+    padding: 8px 12px; border-radius: 10px; cursor: pointer; font: inherit; font-size: 12.5px; }
+  button.sim:hover { border-color: #d97757; }
+
+  .widget { position: fixed; right: 28px; bottom: 28px; transform: translate(var(--dx, 0px), var(--dy, 0px)); }
+  .scaler { display: flex; flex-direction: column; align-items: flex-end; gap: 16px;
+    transform: scale(var(--sc, 1)); transform-origin: bottom right; transition: transform .28s cubic-bezier(.2,.9,.3,1.25); }
+  .bubble { cursor: grab; touch-action: none; user-select: none; }
+  body.dragging, body.dragging .bubble { cursor: grabbing; }
+  body.dragging .scaler, body.dragging .bubble, .scaler.live { transition: none; }
+
+  /* Edit mode */
+  .frame { position: fixed; z-index: 15; display: none; border: 1.5px dashed rgba(255,255,255,.45); border-radius: 26px; pointer-events: none;
+    animation: edit-glow 2.4s ease-in-out infinite; }
+  .frame.show { display: block; }
+  @keyframes edit-glow { 50% { border-color: rgba(255,255,255,.85); } }
+  .handle { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid #d97757;
+    box-shadow: 0 2px 8px rgba(0,0,0,.5), 0 0 10px rgba(217,119,87,.6); pointer-events: auto; touch-action: none; transition: transform .15s; }
+  .handle:hover { transform: scale(1.25); }
+  .handle.tl { left: -9px; top: -9px; cursor: nwse-resize; } .handle.br { right: -9px; bottom: -9px; cursor: nwse-resize; }
+  .handle.tr { right: -9px; top: -9px; cursor: nesw-resize; } .handle.bl { left: -9px; bottom: -9px; cursor: nesw-resize; }
+  .editbar { position: fixed; z-index: 20; display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 16px; border-radius: 99px;
+    background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(140%); backdrop-filter: blur(24px) saturate(140%);
+    border: 1px solid var(--border); box-shadow: 0 16px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
+    opacity: 0; transform: translateY(6px) scale(.96); pointer-events: none; transition: opacity .2s, transform .2s; }
+  .editbar.show { opacity: 1; transform: none; pointer-events: auto; }
+  .eb-label { font-size: 12px; color: var(--muted); }
+  .eb-val { font-size: 12px; font-weight: 600; width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
+  #scale { width: 130px; accent-color: #d97757; }
+  .eb-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid; display: grid; place-items: center; cursor: pointer; transition: transform .15s, box-shadow .2s; }
+  .eb-btn:hover { transform: scale(1.08); }
+  .eb-btn:focus-visible { outline: 2px solid #f2b08c; outline-offset: 2px; }
+  .eb-btn.cancel { color: #ff8a8e; background: rgba(229,72,77,.14); border-color: rgba(229,72,77,.4); }
+  .eb-btn.ok { color: #0e2a1b; background: linear-gradient(135deg, #3ecf8e, #7be8b4); border-color: transparent; box-shadow: 0 0 14px rgba(62,207,142,.5); }
+  .row { display: flex; gap: 20px; align-items: flex-end; padding-bottom: 10px; }
+
+  .toast { position: fixed; right: 28px; top: 24px; padding: 10px 14px; border-radius: 12px; font-size: 13px;
+    background: var(--glass); border: 1px solid var(--border); backdrop-filter: blur(20px);
+    box-shadow: 0 12px 30px rgba(0,0,0,.5); opacity: 0; transform: translateY(-8px); transition: .25s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: none; }
+
+  /* Panel */
+  .panel { width: 320px; padding: 18px; border-radius: 20px; background: var(--glass);
+    -webkit-backdrop-filter: blur(24px) saturate(140%); backdrop-filter: blur(24px) saturate(140%);
+    border: 1px solid var(--border); box-shadow: 0 24px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+    transform-origin: bottom right; opacity: 0; transform: scale(.92) translateY(8px);
+    pointer-events: none; transition: opacity .18s ease, transform .22s cubic-bezier(.2,.9,.3,1.2); display: none; }
+  .panel.open { display: block; }
+  .panel.in { opacity: 1; transform: none; pointer-events: auto; }
+  .head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .mark { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; border: 1px solid; }
+  .head .title { font-size: 14px; font-weight: 600; line-height: 1.1; }
+  .head .plan { font-size: 11px; color: var(--muted); }
+  .badge { margin-left: auto; font-size: 10.5px; font-weight: 600; letter-spacing: .06em; padding: 3px 8px; border-radius: 99px; border: 1px solid; }
+  .metric { padding: 12px 12px 13px; border-radius: 14px; background: rgba(255,255,255,.035); border: 1px solid var(--border); margin-bottom: 10px; }
+  .metric:last-of-type { margin-bottom: 0; }
+  .m-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 9px; }
+  .m-label { font-size: 12px; color: var(--muted); }
+  .m-pct { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .m-pct small { font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 1px; }
+  .bar { position: relative; height: 10px; background: var(--track); border-radius: 99px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 99px; width: 0; transition: width .5s cubic-bezier(.3,.8,.3,1), background .4s; box-shadow: 0 0 12px var(--glow, transparent); }
+  .ticks { position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), rgba(0,0,0,.35) calc(25% - 1px) 25%); }
+  .m-sub { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+  .m-sub b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .foot { margin-top: 12px; font-size: 11px; color: var(--muted); text-align: center; }
+
+  /* Bubble */
+  .bubble { width: 104px; height: 104px; border-radius: 50%; border: none; padding: 0; cursor: grab; position: relative; color: #fff;
+    background: radial-gradient(circle at 30% 25%, #34302b 0%, #1b1916 70%);
+    box-shadow: 0 10px 28px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.1), 0 0 0 1px var(--border);
+    transition: transform .18s ease; animation: pop .45s cubic-bezier(.2,.9,.3,1.3); }
+  @keyframes pop { from { transform: scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
+  .bubble:hover { transform: scale(1.04); }
+  .bubble:active { transform: scale(.97); }
+  .bubble:focus-visible { outline: 2px solid #f2b08c; outline-offset: 4px; }
+  .bubble svg.ring { position: absolute; inset: 0; transform: rotate(-90deg); overflow: visible; }
+  .ring-track { stroke: var(--track); }
+  .ring-fill { transition: stroke-dashoffset .5s cubic-bezier(.3,.8,.3,1); filter: drop-shadow(0 0 5px var(--glow, transparent)); }
+  .logo { position: absolute; inset: 0; display: grid; place-items: center; }
+  .logo svg { transition: transform .5s ease; }
+  .bubble:hover .logo svg { transform: rotate(30deg); }
+  .pct-chip { position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%); font-size: 12px; font-weight: 700;
+    font-variant-numeric: tabular-nums; padding: 3px 10px; border-radius: 99px; color: #fff; background: #3a3631;
+    border: 1px solid rgba(255,255,255,.18); box-shadow: 0 4px 10px rgba(0,0,0,.5); }
+  .name-tag { position: absolute; left: 50%; top: -9px; transform: translateX(-50%); font-size: 10px; font-weight: 600; letter-spacing: .05em;
+    text-transform: uppercase; padding: 2px 8px; border-radius: 99px; color: #fff; white-space: nowrap; }
+  .bubble { animation: pop .45s cubic-bezier(.2,.9,.3,1.3), breathe 4.5s ease-in-out .45s infinite; }
+  .bubble.hot { animation: pop .45s cubic-bezier(.2,.9,.3,1.3), pulse 1.6s ease-in-out infinite; }
+  @keyframes breathe { 50% { box-shadow: 0 10px 28px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.1), 0 0 0 1px var(--border), 0 0 22px var(--glow); } }
+  @keyframes pulse { 50% { box-shadow: 0 10px 28px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.1), 0 0 0 1px var(--border), 0 0 34px var(--glow); } }
+
+  /* Premium touches: sweeping shine, glowing ring head, logo halo, bar shimmer, panel hairline */
+  .bubble::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; pointer-events: none;
+    background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.30) 50%, transparent 62%);
+    background-size: 260% 100%; background-position: 160% 0; animation: shine 7s ease-in-out 1.2s infinite; }
+  @keyframes shine { 0% { background-position: 160% 0; } 22%, 100% { background-position: -60% 0; } }
+  .head-dot { filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 8px var(--glow, #fff)); animation: twinkle 2.4s ease-in-out infinite; }
+  @keyframes twinkle { 50% { opacity: .55; } }
+  .logo svg.mk { filter: drop-shadow(0 0 5px var(--glow, transparent)); animation: halo 4.5s ease-in-out infinite; }
+  @keyframes halo { 50% { filter: drop-shadow(0 0 11px var(--glow, transparent)) brightness(1.15); } }
+  .fill { position: relative; overflow: hidden; }
+  .fill::after { content: ""; position: absolute; top: 0; bottom: 0; left: -45%; width: 45%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.5), transparent); animation: slide 3.2s ease-in-out infinite; }
+  @keyframes slide { 0% { left: -45%; } 55%, 100% { left: 110%; } }
+  .panel { position: relative; }
+  .panel::before { content: ""; position: absolute; top: 0; left: 24px; right: 24px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); }
+  .pct-chip { animation: glint 7s ease-in-out 2s infinite; }
+  @keyframes glint { 0%, 88%, 100% { box-shadow: 0 4px 10px rgba(0,0,0,.5); } 94% { box-shadow: 0 4px 10px rgba(0,0,0,.5), 0 0 14px var(--glow); } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="desktop">
+  <h1>Agent usage widget: prototype</h1>
+  <p class="hint">One circle per detected agent. Drag a circle to move the widget, click to open the panel, double-click to edit size and position (confirm with ✓ or discard with ✕). Data is simulated.</p>
+  <div class="controls agents">
+    <span class="label">Simulate detection</span>
+    <button class="sim" data-toggle="claude">Toggle Claude Code</button>
+    <button class="sim" data-toggle="codex">Toggle Codex</button>
+  </div>
+  <div class="controls">
+    <span class="label">Simulate usage</span>
+    <button class="sim" id="addPrompt">+ Prompt on every agent</button>
+    <button class="sim" id="fastForward">Jump to 5h reset</button>
+    <button class="sim" id="resetAll">Restart demo</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<div class="frame" id="frame" aria-hidden="true">
+  <span class="handle tl" data-c="tl"></span><span class="handle tr" data-c="tr"></span>
+  <span class="handle bl" data-c="bl"></span><span class="handle br" data-c="br"></span>
+</div>
+
+<div class="editbar" id="editbar" role="toolbar" aria-label="Edit widget size and position">
+  <span class="eb-label">Drag the corners to resize</span>
+  <span class="eb-val" id="scaleVal">100%</span>
+  <button class="eb-btn cancel" id="ebCancel" aria-label="Discard changes" title="Discard (Esc)">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>
+  </button>
+  <button class="eb-btn ok" id="ebOk" aria-label="Save changes" title="Save (Enter)">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg>
+  </button>
+</div>
+
+<div class="widget" id="widget">
+  <div class="scaler" id="scaler">
+    <div id="panels"></div>
+    <div class="row" id="row"></div>
+  </div>
+</div>
+
+<script>
+  const H = 3600e3, R = 46, C = 2 * Math.PI * R, now = () => Date.now();
+
+  function burst(color, size, vb = 24) {
+    let g = `<svg class="mk" width="${size}" height="${size}" viewBox="-12 -12 24 24" aria-hidden="true"><g stroke="${color}" stroke-linecap="round" stroke-width="2.6">`;
+    for (let i = 0; i < 12; i++) {
+      const a = (i * 30 - 90) * Math.PI / 180, len = i % 2 ? 8.2 : 10.6;
+      g += `<line x1="${(Math.cos(a)*1.6).toFixed(2)}" y1="${(Math.sin(a)*1.6).toFixed(2)}" x2="${(Math.cos(a)*len).toFixed(2)}" y2="${(Math.sin(a)*len).toFixed(2)}"/>`;
+    }
+    return g + '</g></svg>';
+  }
+  // Codex mark: cloud outline with a terminal prompt (>_) inside
+  function codexMark(color, size) {
+    return `<svg class="mk" width="${size}" height="${size}" viewBox="-12 -12 24 24" aria-hidden="true">
+      <g fill="none" stroke="${color}" stroke-linecap="round" stroke-linejoin="round">
+        <path stroke-width="2.2" d="M-6 6.2 A4.5 4.5 0 0 1 -6.2 -1.4 A6 6 0 0 1 5.2 -3.6 A4.8 4.8 0 0 1 6.2 6.2 Z"/>
+        <path stroke-width="1.9" d="M-3.4 -0.6 L-0.8 1.9 L-3.4 4.4 M0.6 4.4 H4"/>
+      </g></svg>`;
+  }
+
+  const PROVIDERS = {
+    claude: { name: 'Claude Code', plan: 'PRO', brand: '#d97757', brand2: '#f2b08c', logo: (s) => burst('#d97757', s) },
+    codex:  { name: 'Codex', plan: 'PLUS', brand: '#7c86ff', brand2: '#b4baff', logo: (s) => codexMark('#9aa2ff', s) },
+  };
+
+  const state = {};   // id -> { windows:[{minutes,pct,resetsAt}], updatedAt }
+  const detected = []; // ordered list of ids currently shown
+  let openId = null;
+
+  function seed(id) {
+    state[id] = {
+      updatedAt: now(),
+      windows: id === 'claude'
+        ? [{ minutes: 300, pct: 23.5, resetsAt: now() + 2.2 * H }, { minutes: 10080, pct: 41.2, resetsAt: now() + 3.4 * 24 * H }]
+        : [{ minutes: 300, pct: 62, resetsAt: now() + 1.1 * H }, { minutes: 10080, pct: 18, resetsAt: now() + 5.1 * 24 * H }],
+    };
+  }
+
+  const $ = id => document.getElementById(id);
+  const level = p => p >= 90 ? 'bad' : p >= 70 ? 'warn' : 'ok';
+  const statusGrad = (id, l) => l === 'ok' ? [PROVIDERS[id].brand, PROVIDERS[id].brand2]
+    : l === 'warn' ? ['#e0a53c', '#f5cf7a'] : ['#e5484d', '#ff8a8e'];
+  const fmt = ms => {
+    if (ms <= 0) return '0m';
+    const d = Math.floor(ms / (24*H)), h = Math.floor(ms % (24*H) / H), m = Math.floor(ms % H / 60e3);
+    return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+  };
+  const clock = t => new Date(t).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  const windowLabel = m => m === 300 ? 'Current session · 5h' : m === 10080 ? 'Weekly · 7 days' : `${Math.round(m / 60)}h window`;
+
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // --- Drag to move, double-click to cycle size, position + size persisted ---
+  const view = { dx: 0, dy: 0, scale: 1 };
+  try { const v = JSON.parse(localStorage.getItem('agent-usage-widget') || '{}'); if (v.scale) Object.assign(view, v); } catch (e) {}
+  const saveView = () => { try { localStorage.setItem('agent-usage-widget', JSON.stringify(view)); } catch (e) {} };
+  let editing = false, backup = null;
+
+  function applyView() {
+    const w = $('widget'), sc = $('scaler');
+    sc.style.setProperty('--sc', view.scale);
+    w.style.setProperty('--dx', view.dx + 'px'); w.style.setProperty('--dy', view.dy + 'px');
+    placeBar();
+  }
+  // Floating edit bar sits above the widget (or below if there is no room)
+  function placeBar() {
+    if (!editing) return;
+    const r = $('scaler').getBoundingClientRect(), bar = $('editbar'), bw = bar.offsetWidth, f = $('frame').style, pad = 14;
+    f.left = r.left - pad + 'px'; f.top = r.top - pad + 'px'; f.width = r.width + pad * 2 + 'px'; f.height = r.height + pad * 2 + 'px';
+    $('scaleVal').textContent = Math.round(view.scale * 100) + '%';
+    bar.style.left = Math.max(8, Math.min(r.right - bw, innerWidth - bw - 8)) + 'px';
+    const top = r.top - bar.offsetHeight - 14;
+    bar.style.top = (top < 8 ? r.bottom + 14 : top) + 'px';
+  }
+  function enterEdit() {
+    if (editing) return;
+    editing = true; backup = { ...view }; openId = null; render();
+    $('frame').classList.add('show'); $('editbar').classList.add('show'); placeBar();
+    toast('Edit mode: drag to move, drag the corners to resize, then confirm');
+  }
+  function exitEdit(confirm) {
+    if (!editing) return;
+    if (confirm) saveView(); else { Object.assign(view, backup); applyView(); }
+    editing = false; $('frame').classList.remove('show'); $('editbar').classList.remove('show');
+    setTimeout(clampView, 300);
+    toast(confirm ? 'Saved' : 'Changes discarded');
+  }
+  // Keep the widget fully inside the window
+  function clampView() {
+    const r = $('scaler').getBoundingClientRect(), m = 8;
+    if (r.left < m) view.dx += m - r.left;
+    if (r.right > innerWidth - m) view.dx -= r.right - (innerWidth - m);
+    if (r.top < m) view.dy += m - r.top;
+    if (r.bottom > innerHeight - m) view.dy -= r.bottom - (innerHeight - m);
+    applyView();
+  }
+
+  function enableInteraction(el, id) {
+    let start = null, moved = false, clickTimer = null;
+    el.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      start = { x: e.clientX, y: e.clientY, dx: view.dx, dy: view.dy }; moved = false;
+      el.setPointerCapture(e.pointerId);
+    });
+    el.addEventListener('pointermove', e => {
+      if (!start) return;
+      const ddx = e.clientX - start.x, ddy = e.clientY - start.y;
+      if (!moved && Math.hypot(ddx, ddy) < 5) return;
+      if (!moved) { moved = true; document.body.classList.add('dragging'); clearTimeout(clickTimer); }
+      view.dx = start.dx + ddx; view.dy = start.dy + ddy; applyView();
+    });
+    const end = () => {
+      if (!start) return;
+      start = null; document.body.classList.remove('dragging');
+      if (moved) { clampView(); if (!editing) saveView(); }
+    };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+
+    // Single click toggles the panel; it waits briefly so a double-click doesn't also toggle it
+    el.addEventListener('click', () => {
+      if (moved) { moved = false; return; }
+      clearTimeout(clickTimer);
+      if (editing) return;
+      clickTimer = setTimeout(() => { openId = openId === id ? null : id; render(); clampView(); }, 230);
+    });
+    el.addEventListener('dblclick', () => { clearTimeout(clickTimer); enterEdit(); });
+  }
+  addEventListener('resize', clampView);
+
+  // Corner handles: proportional resize that keeps the opposite corner fixed, like resizing an image
+  document.querySelectorAll('.handle').forEach(h => {
+    let g = null;
+    h.addEventListener('pointerdown', e => {
+      const r = $('scaler').getBoundingClientRect(), c = h.dataset.c;
+      const hx = c.includes('l') ? r.left : r.right, hy = c.includes('t') ? r.top : r.bottom;
+      const ox = c.includes('l') ? r.right : r.left, oy = c.includes('t') ? r.bottom : r.top;
+      g = { c, r, s0: view.scale, dx0: view.dx, dy0: view.dy, ox, oy, d0: Math.hypot(hx - ox, hy - oy) };
+      h.setPointerCapture(e.pointerId); $('scaler').classList.add('live'); e.preventDefault();
+    });
+    h.addEventListener('pointermove', e => {
+      if (!g) return;
+      // Project the pointer onto the diagonal so the size follows the handle smoothly
+      const ux = (g.c.includes('l') ? -1 : 1) * g.r.width, uy = (g.c.includes('t') ? -1 : 1) * g.r.height, n = Math.hypot(ux, uy);
+      const proj = ((e.clientX - g.ox) * ux + (e.clientY - g.oy) * uy) / n;
+      view.scale = Math.max(0.5, Math.min(2, g.s0 * proj / g.d0));
+      const k = view.scale / g.s0, w = g.r.width * k, hh = g.r.height * k;
+      const right = g.c.includes('l') ? g.ox : g.ox + w, bottom = g.c.includes('t') ? g.oy : g.oy + hh;
+      view.dx = g.dx0 + (right - g.r.right); view.dy = g.dy0 + (bottom - g.r.bottom);
+      applyView();
+    });
+    const done = () => { if (!g) return; g = null; $('scaler').classList.remove('live'); clampView(); };
+    h.addEventListener('pointerup', done); h.addEventListener('pointercancel', done);
+  });
+  $('ebOk').addEventListener('click', () => exitEdit(true));
+  $('ebCancel').addEventListener('click', () => exitEdit(false));
+  addEventListener('keydown', e => {
+    if (!editing) return;
+    if (e.key === 'Escape') exitEdit(false); else if (e.key === 'Enter') exitEdit(true);
+  });
+
+  // Dynamic reconciliation: create new, remove missing, leave the rest untouched
+  function reconcile(newList) {
+    for (const id of [...detected]) if (!newList.includes(id)) {
+      detected.splice(detected.indexOf(id), 1);
+      $('b-' + id)?.remove(); $('p-' + id)?.remove();
+      if (openId === id) openId = null;
+      toast(`${PROVIDERS[id].name} disconnected`);
+    }
+    for (const id of newList) if (!detected.includes(id)) {
+      detected.push(id); if (!state[id]) seed(id);
+      mount(id); toast(`${PROVIDERS[id].name} detected`);
+    }
+    detected.sort((a, b) => Object.keys(PROVIDERS).indexOf(a) - Object.keys(PROVIDERS).indexOf(b));
+    detected.forEach(id => $('row').appendChild($('b-' + id)));
+    render();
+  }
+
+  function mount(id) {
+    const P = PROVIDERS[id];
+    const b = document.createElement('button');
+    b.className = 'bubble'; b.id = 'b-' + id; b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-label', P.name + ' usage');
+    b.innerHTML = `
+      <svg class="ring" width="104" height="104" viewBox="0 0 104 104" aria-hidden="true">
+        <defs><linearGradient id="g-${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" id="ga-${id}"/><stop offset="1" id="gb-${id}"/></linearGradient></defs>
+        <circle class="ring-track" cx="52" cy="52" r="${R}" fill="none" stroke-width="7"/>
+        <circle class="ring-fill" id="r-${id}" cx="52" cy="52" r="${R}" fill="none" stroke="url(#g-${id})" stroke-width="7" stroke-linecap="round"/>
+        <circle class="head-dot" id="h-${id}" r="2.6" fill="#fff"/>
+      </svg>
+      <span class="logo">${P.logo(46)}</span>
+      <span class="name-tag" style="background:${P.brand}">${P.name}</span>
+      <span class="pct-chip" id="c-${id}">0%</span>`;
+    enableInteraction(b, id);
+    $('row').appendChild(b);
+
+    const p = document.createElement('div');
+    p.className = 'panel'; p.id = 'p-' + id; p.setAttribute('role', 'dialog');
+    p.innerHTML = `
+      <div class="head">
+        <div class="mark" style="border-color:${P.brand}55;background:${P.brand}1f">${P.logo(18)}</div>
+        <div><div class="title">${P.name}</div><div class="plan">Usage limits</div></div>
+        <span class="badge" style="color:${P.brand2};border-color:${P.brand}55;background:${P.brand}22">${P.plan}</span>
+      </div>
+      <div id="m-${id}"></div>
+      <div class="foot" id="f-${id}">Updated just now</div>`;
+    $('panels').appendChild(p);
+  }
+
+  function render() {
+    for (const id of detected) {
+      const s = state[id];
+      for (const w of s.windows) if (w.resetsAt !== null && now() >= w.resetsAt) { w.pct = 0; w.resetsAt = null; }
+      const head = s.windows[0], l = level(head.pct), [a, b2] = statusGrad(id, l);
+
+      // Bubble: the outer ring always follows the shortest window (the 5h one)
+      $('ga-' + id).setAttribute('stop-color', a); $('gb-' + id).setAttribute('stop-color', b2);
+      const ring = $('r-' + id);
+      ring.style.strokeDasharray = C; ring.style.strokeDashoffset = C * (1 - head.pct / 100);
+      ring.style.setProperty('--glow', a + 'aa');
+      const th = 2 * Math.PI * head.pct / 100, dot = $('h-' + id);
+      dot.setAttribute('cx', (52 + R * Math.cos(th)).toFixed(2)); dot.setAttribute('cy', (52 + R * Math.sin(th)).toFixed(2));
+      dot.style.setProperty('--glow', a); dot.style.display = head.pct > 1 ? '' : 'none';
+      $('b-' + id).style.setProperty('--glow', a + 'aa');
+      $('b-' + id).classList.toggle('hot', head.pct >= 90);
+      $('b-' + id).setAttribute('aria-expanded', openId === id);
+      $('c-' + id).textContent = Math.round(head.pct) + '%';
+
+      // Panel
+      const host = $('m-' + id);
+      if (host.children.length !== s.windows.length) {
+        host.innerHTML = s.windows.map((w, i) => `
+          <div class="metric">
+            <div class="m-top"><span class="m-label">${windowLabel(w.minutes)}</span><span class="m-pct"><span id="mp-${id}-${i}">0</span><small>%</small></span></div>
+            <div class="bar"><div class="fill" id="mf-${id}-${i}"></div><div class="ticks"></div></div>
+            <div class="m-sub"><span id="ms-${id}-${i}"></span><span id="ma-${id}-${i}"></span></div>
+          </div>`).join('');
+      }
+      s.windows.forEach((w, i) => {
+        const [ca, cb] = statusGrad(id, level(w.pct)), f = $(`mf-${id}-${i}`);
+        $(`mp-${id}-${i}`).textContent = Math.round(w.pct);
+        f.style.width = w.pct + '%'; f.style.background = `linear-gradient(90deg, ${ca}, ${cb})`; f.style.setProperty('--glow', ca + '99');
+        $(`ms-${id}-${i}`).innerHTML = w.resetsAt ? `Resets in <b>${fmt(w.resetsAt - now())}</b>` : 'Starts at next prompt';
+        $(`ma-${id}-${i}`).textContent = w.resetsAt ? clock(w.resetsAt) : '';
+      });
+      const secs = Math.floor((now() - s.updatedAt) / 1000);
+      $('f-' + id).textContent = secs < 5 ? 'Updated just now' : `Updated ${secs}s ago`;
+
+      const panel = $('p-' + id), open = openId === id;
+      if (open) { panel.classList.add('open'); requestAnimationFrame(() => panel.classList.add('in')); }
+      else { panel.classList.remove('in'); panel.classList.remove('open'); }
+    }
+  }
+
+  // --- Simulation controls ---
+  document.querySelectorAll('[data-toggle]').forEach(btn => btn.addEventListener('click', () => {
+    const id = btn.dataset.toggle;
+    reconcile(detected.includes(id) ? detected.filter(x => x !== id) : [...detected, id]);
+  }));
+  $('addPrompt').addEventListener('click', () => {
+    for (const id of detected) {
+      const s = state[id];
+      s.windows[0].pct = Math.min(100, s.windows[0].pct + 4);
+      s.windows[1].pct = Math.min(100, s.windows[1].pct + 1);
+      if (!s.windows[0].resetsAt) s.windows[0].resetsAt = now() + 5 * H;
+      if (!s.windows[1].resetsAt) s.windows[1].resetsAt = now() + 7 * 24 * H;
+      s.updatedAt = now();
+    }
+    render();
+  });
+  $('fastForward').addEventListener('click', () => { for (const id of detected) state[id].windows[0].resetsAt = now() - 1; render(); });
+  $('resetAll').addEventListener('click', () => { for (const k in state) delete state[k]; const keep = [...detected]; detected.length = 0; $('row').innerHTML = ''; $('panels').innerHTML = ''; openId = null; reconcile(keep); });
+
+  applyView();
+  reconcile(['claude']);
+  clampView();
+  setInterval(render, 1000);
+</script>
+</body>
+</html>
