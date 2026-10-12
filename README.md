@@ -6,6 +6,11 @@ the usage page of each tool. No API keys: it reads the data your agents already 
 One glass bubble per detected agent (**Claude Code** and **Codex** today). The ring around each bubble fills with your
 5-hour usage. Click a bubble to open a detail panel with every limit window, its percentage and the time left until it resets.
 
+<p align="center">
+  <img src="docs/screenshot.png" alt="Agent Usage Widget showing Claude Code at 24% and Codex at 65% (demo data)" width="168">
+</p>
+<p align="center"><sub>Demo data (<code>npm run dev:demo</code>). Each ring fills with the 5-hour usage of its agent.</sub></p>
+
 ## Features
 
 - **Dynamic detection.** One agent found, one bubble. Two found, two bubbles. An agent appears or disappears while the app is running and the widget follows.
@@ -180,6 +185,10 @@ Units: `UsageWindow.resetsAt` is epoch **seconds** (as both sources give it) and
 - Both sources update when the agent writes data, so the widget is near real time while you work and shows the last known value while you are idle.
 - Windows 11 is the only tested platform. There is no installer yet (no electron-builder); `npm run build` produces the runnable bundle.
 - Not yet verified on multi-monitor setups.
+
+## License
+
+[MIT](LICENSE)
 
 ## Roadmap
 
