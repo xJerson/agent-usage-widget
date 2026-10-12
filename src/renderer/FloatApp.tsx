@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { FLOAT_PADDING } from '../shared/ipc';
 import type { FloatBarState, FloatPanelData, FloatRole, ToastMessage } from '../shared/types';
 import { EditBar } from './components/EditChrome';
 import { Panel } from './components/Panel';
@@ -66,7 +67,7 @@ export function FloatApp({ role }: { role: FloatRole }) {
 
   const shown = phase === 'in';
   return (
-    <div className="float-shell" ref={shellRef} data-phase={phase}>
+    <div className="float-shell" ref={shellRef} data-phase={phase} style={{ padding: FLOAT_PADDING[role] }}>
       {content !== null && role === 'panel' && <PanelBody data={content as FloatPanelData} now={now} shown={shown} />}
       {content !== null && role === 'toast' && <ToastBody toast={content as ToastMessage} shown={shown} />}
       {content !== null && role === 'bar' && <BarBody state={content as FloatBarState} shown={shown} />}

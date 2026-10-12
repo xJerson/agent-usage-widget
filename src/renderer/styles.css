@@ -36,7 +36,7 @@ body {
 body.dragging, body.dragging .bubble { cursor: grabbing; }
 
 /* Floating windows (panel, toast, edit bar): invisible until the window has its final size */
-.float-shell { position: fixed; left: 0; top: 0; width: max-content; padding: var(--pad); }
+.float-shell { position: fixed; left: 0; top: 0; width: max-content; }
 .float-shell[data-phase="hidden"], .float-shell[data-phase="measuring"] { visibility: hidden; }
 .editbar-wrap { opacity: 0; transform: translateY(6px) scale(0.96); transition: opacity 0.2s, transform 0.2s; }
 .editbar-wrap.in { opacity: 1; transform: none; }
@@ -62,7 +62,7 @@ body.dragging, body.dragging .bubble { cursor: grabbing; }
 .editbar {
   position: relative; z-index: 20; display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 16px; border-radius: 99px; margin-bottom: 28px;
   background: var(--glass); -webkit-backdrop-filter: blur(24px) saturate(140%); backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid var(--border); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   animation: bar-in 0.2s ease-out;
 }
 @keyframes bar-in { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: none; } }
@@ -77,7 +77,7 @@ body.dragging, body.dragging .bubble { cursor: grabbing; }
 .toast {
   margin-bottom: 8px; padding: 10px 14px; border-radius: 12px; font-size: 13px; max-width: 360px;
   background: var(--glass); border: 1px solid var(--border); backdrop-filter: blur(20px);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5); animation: toast-in 0.25s ease-out;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5); animation: toast-in 0.25s ease-out;
 }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 
@@ -85,7 +85,7 @@ body.dragging, body.dragging .bubble { cursor: grabbing; }
 .panel {
   position: relative; width: 320px; padding: 18px; border-radius: 20px; background: var(--glass);
   -webkit-backdrop-filter: blur(24px) saturate(140%); backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid var(--border); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   transform-origin: bottom right; opacity: 0; transform: scale(0.92) translateY(8px);
   pointer-events: none; transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }

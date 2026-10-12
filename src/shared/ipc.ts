@@ -6,6 +6,7 @@ import type {
   FloatPanelData,
   LayoutState,
   Size,
+  FloatRole,
   ToastMessage,
   UsageEntry,
 } from './types';
@@ -81,3 +82,10 @@ export interface WidgetApi {
 export const WINDOW_PADDING = 32;
 export const MIN_SCALE = 0.5;
 export const MAX_SCALE = 2;
+
+/**
+ * Transparent padding (px) around the card of each floating window. It must exceed the reach of the card's CSS
+ * box-shadow (offset + blur), otherwise the shadow is clipped at the window edge and shows as a hard rectangle.
+ * Panel shadow: 0 16px 40px, edit bar: 0 10px 24px, toast: 0 8px 20px (see styles.css).
+ */
+export const FLOAT_PADDING: Record<FloatRole, number> = { panel: 64, bar: 40, toast: 40 };

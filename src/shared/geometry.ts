@@ -122,3 +122,17 @@ export function placeAbove(i: { stageRight: number; stageTop: number; size: Size
     y: clampTo(i.stageTop - i.gap - i.size.height, wa.y, Math.max(wa.y, wa.y + wa.height - i.size.height)),
   };
 }
+
+/** Size of the card inside a floating window whose reported size includes `pad` of transparent padding per side. */
+export const floatContentSize = (windowSize: Size, pad: number): Size => ({
+  width: windowSize.width - pad * 2,
+  height: windowSize.height - pad * 2,
+});
+
+/** Window bounds that put the card's top-left at `contentPos`, with the padding around it (room for the shadow). */
+export const floatWindowBounds = (contentPos: Point, windowSize: Size, pad: number): Rect => ({
+  x: Math.round(contentPos.x - pad),
+  y: Math.round(contentPos.y - pad),
+  width: windowSize.width,
+  height: windowSize.height,
+});

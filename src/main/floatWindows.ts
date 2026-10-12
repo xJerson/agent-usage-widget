@@ -1,6 +1,6 @@
 import { BrowserWindow, ipcMain, screen, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron';
-import { placeAbove, placePanel } from '../shared/geometry';
-import { IPC, WINDOW_PADDING } from '../shared/ipc';
+import { floatContentSize, floatWindowBounds, placeAbove, placePanel } from '../shared/geometry';
+import { FLOAT_PADDING, IPC } from '../shared/ipc';
 import type { FloatBarState, FloatLayout, FloatPanelData, FloatRole, Rect, Size, ToastMessage } from '../shared/types';
 
 const PANEL_GAP = 16;
@@ -185,7 +185,8 @@ export class FloatWindows {
     const mb = main.getContentBounds();
     const wa = this.workArea(mb);
     const stage = { x: mb.x + this.layout.stage.x, y: mb.y + this.layout.stage.y, width: this.layout.stage.width, height: this.layout.stage.height };
-    const content: Size = { width: s.size.width - WINDOW_PADDING * 2, height: s.size.height - WINDOW_PADDING * 2 };
+    const pad = FLOAT_PADDING[s.role];
+    const content: Size = floatContentSize(s.size, pad);
     let pos = { x: 0, y: 0 };
     if (s.role === 'panel') {
       const b = this.layout.bubble;
@@ -195,10 +196,10 @@ export class FloatWindows {
       pos = placeAbove({ stageRight: stage.x + stage.width, stageTop: stage.y, size: content, gap: BAR_GAP, workArea: wa });
     } else {
       const bar = this.slots.bar;
-      const barTop = bar.shown && bar.win && !bar.win.isDestroyed() ? bar.win.getBounds().y + WINDOW_PADDING : null;
+      const barTop = bar.shown && bar.win && !bar.win.isDestroyed() ? bar.win.getBounds().y + FLOAT_PADDING.bar : null;
       pos = placeAbove({ stageRight: stage.x + stage.width, stageTop: barTop ?? stage.y - TOAST_GAP, size: content, gap: barTop !== null ? TOAST_GAP : 0, workArea: wa });
     }
-    s.win.setBounds({ x: Math.round(pos.x - WINDOW_PADDING), y: Math.round(pos.y - WINDOW_PADDING), width: s.size.width, height: s.size.height }, false);
+    s.win.setBounds(floatWindowBounds(pos, s.size, pad), false);
   }
 
   destroy(): void {

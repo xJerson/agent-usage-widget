@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { clampAnchor, clampScale, defaultAnchor, placeAbove, placePanel, resizeFromCorner, windowBoundsFor } from './geometry';
+import { clampAnchor, clampScale, defaultAnchor, floatContentSize, floatWindowBounds, placeAbove, placePanel, resizeFromCorner, windowBoundsFor } from './geometry';
+import { FLOAT_PADDING } from './ipc';
 
 const wa = { x: 0, y: 0, width: 1920, height: 1040 };
 
@@ -175,5 +176,31 @@ describe('placeAbove (toast / edit bar above the scaled stack)', () => {
   });
   it('is clamped into the work area', () => {
     expect(placeAbove({ stageRight: 200, stageTop: 20, size: { width: 360, height: 50 }, gap: 8, workArea: wa })).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('floating window padding (room for the soft shadow)', () => {
+  it('window bounds wrap the card with the padding on every side', () => {
+    expect(floatWindowBounds({ x: 500, y: 300 }, { width: 448, height: 428 }, 64)).toEqual({ x: 436, y: 236, width: 448, height: 428 });
+    expect(floatContentSize({ width: 448, height: 428 }, 64)).toEqual({ width: 320, height: 300 });
+  });
+
+  it('the card keeps the same 16px gap to the column whatever the padding', () => {
+    const wa = { x: 0, y: 0, width: 1920, height: 1040 };
+    for (const pad of [32, 64, 96]) {
+      const windowSize = { width: 320 + pad * 2, height: 300 + pad * 2 };
+      const content = floatContentSize(windowSize, pad);
+      const pos = placePanel({ columnLeft: 1788, columnRight: 1892, bubbleBottom: 900, size: content, workArea: wa, gap: 16 });
+      const win = floatWindowBounds(pos, windowSize, pad);
+      expect(win.x + win.width - pad + 16).toBe(1788); // card right edge + gap = column left
+      expect(win.y + win.height - pad).toBe(900); // card bottom = bubble bottom
+    }
+  });
+
+  it('every floating window has more padding than its shadow can reach (blur + offset)', () => {
+    // CSS shadows in styles.css: panel 0 16px 40px, bar 0 10px 24px, toast 0 8px 20px
+    expect(FLOAT_PADDING.panel).toBeGreaterThanOrEqual(16 + 40);
+    expect(FLOAT_PADDING.bar).toBeGreaterThanOrEqual(10 + 24);
+    expect(FLOAT_PADDING.toast).toBeGreaterThanOrEqual(8 + 20);
   });
 });
