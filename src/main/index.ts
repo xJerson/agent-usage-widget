@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, type IpcMainEvent } from 'electron';
+import { app, BrowserWindow, ipcMain, powerMonitor, screen, session, type IpcMainEvent } from 'electron';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { IPC } from '../shared/ipc';
@@ -7,6 +7,7 @@ import { ClaudeConnector } from './connectors/claudeConnector';
 import { createDemoProviders } from './demo';
 import { FloatWindows } from './floatWindows';
 import { createProviders } from './providers';
+import { watchTopmost } from './topmost';
 import { createTray } from './tray';
 import { UsageService } from './usageService';
 import { WidgetController } from './widgetController';
@@ -151,10 +152,35 @@ async function main(): Promise<void> {
     }, 5000);
   }
 
+  const stopTopmost = watchTopmost({
+    windows: () => [win, ...(floats?.windows() ?? [])],
+    subscribe: (reassert) => {
+      const onTopChanged = (_e: unknown, isOnTop: boolean): void => {
+        if (!isOnTop) reassert();
+      };
+      powerMonitor.on('resume', reassert);
+      powerMonitor.on('unlock-screen', reassert);
+      screen.on('display-added', reassert);
+      screen.on('display-removed', reassert);
+      screen.on('display-metrics-changed', reassert);
+      win.on('always-on-top-changed', onTopChanged);
+      return () => {
+        powerMonitor.off('resume', reassert);
+        powerMonitor.off('unlock-screen', reassert);
+        screen.off('display-added', reassert);
+        screen.off('display-removed', reassert);
+        screen.off('display-metrics-changed', reassert);
+        if (!win.isDestroyed()) win.off('always-on-top-changed', onTopChanged);
+      };
+    },
+    intervalMs: 30_000,
+  });
+
   app.on('second-instance', () => {
     if (!win.isDestroyed()) win.showInactive();
   });
   app.on('before-quit', () => {
+    stopTopmost();
     service.stop();
     floats?.destroy();
   });

@@ -202,6 +202,16 @@ export class FloatWindows {
     s.win.setBounds(floatWindowBounds(pos, s.size, pad), false);
   }
 
+  /** The floating windows created so far (they are created lazily). */
+  windows(): BrowserWindow[] {
+    const out: BrowserWindow[] = [];
+    for (const role of ['panel', 'toast', 'bar'] as const) {
+      const w = this.slots[role].win;
+      if (w && !w.isDestroyed()) out.push(w);
+    }
+    return out;
+  }
+
   destroy(): void {
     for (const role of ['panel', 'toast', 'bar'] as const) {
       const w = this.slots[role].win;
