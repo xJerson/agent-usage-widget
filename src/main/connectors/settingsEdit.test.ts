@@ -5,6 +5,7 @@ import {
   isOurCommand,
   parseSettingsText,
   quoteForShell,
+  quoteForWindows,
   serializeSettings,
   toPosixPath,
 } from './settingsEdit';
@@ -23,6 +24,22 @@ describe('quoteForShell', () => {
   });
 });
 
+describe('quoteForWindows', () => {
+  it('wraps in double quotes and leaves backslashes alone when no quote follows them', () => {
+    expect(quoteForWindows('python C:\\Users\\Ana Maria\\s.py')).toBe('"python C:\\Users\\Ana Maria\\s.py"');
+  });
+  it('escapes embedded quotes and the backslashes right before them (CommandLineToArgvW rules)', () => {
+    expect(quoteForWindows('say "hi"')).toBe('"say \\"hi\\""');
+    expect(quoteForWindows('a\\"b')).toBe('"a\\\\\\"b"');
+  });
+  it('doubles trailing backslashes so they do not escape the closing quote', () => {
+    expect(quoteForWindows('C:\\dir\\')).toBe('"C:\\dir\\\\"');
+  });
+  it('does not treat $ or backticks as special (cmd.exe and PowerShell argv, not POSIX)', () => {
+    expect(quoteForWindows('$HOME `x`')).toBe('"$HOME `x`"');
+  });
+});
+
 describe('buildCommand', () => {
   const hook = 'C:\\Users\\Ana Maria\\.claude\\usage-widget\\hook.js';
   it('is a plain node call when there is no original command', () => {
@@ -38,6 +55,14 @@ describe('buildCommand', () => {
   });
 });
 
+describe('buildCommand with a style', () => {
+  it('adds extra hook arguments before --then and uses the given quoting', () => {
+    const style = { args: '--agent antigravity', quote: quoteForWindows };
+    expect(buildCommand('C:\\h\\hook.js', null, style)).toBe('node "C:/h/hook.js" --agent antigravity');
+    expect(buildCommand('C:\\h\\hook.js', 'python C:\\a b\\s.py', style)).toBe('node "C:/h/hook.js" --agent antigravity --then "python C:\\a b\\s.py"');
+  });
+});
+
 describe('isOurCommand', () => {
   it('recognises commands that call our hook, wrapped or not', () => {
     const hook = '/home/u/.claude/usage-widget/hook.js';
@@ -45,6 +70,7 @@ describe('isOurCommand', () => {
     expect(isOurCommand(buildCommand(hook, 'echo hi'), hook)).toBe(true);
     expect(isOurCommand('bash ~/.claude/statusline-command.sh', hook)).toBe(false);
     expect(isOurCommand(undefined, hook)).toBe(false);
+    expect(isOurCommand(buildCommand(hook, 'echo hi', { args: '--agent antigravity' }), hook)).toBe(true);
   });
 });
 

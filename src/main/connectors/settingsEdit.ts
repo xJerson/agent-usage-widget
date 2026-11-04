@@ -1,4 +1,4 @@
-export type ConnectorErrorCode = 'no_claude_dir' | 'invalid_settings' | 'no_restore_info' | 'write_failed';
+export type ConnectorErrorCode = 'no_agent_dir' | 'invalid_settings' | 'unsupported_path' | 'no_restore_info' | 'write_failed';
 
 export class ConnectorError extends Error {
   constructor(
@@ -16,10 +16,39 @@ export const toPosixPath = (p: string): string => p.replace(/\\/g, '/');
 /** POSIX double-quote quoting: escapes the characters that stay special inside double quotes. */
 export const quoteForShell = (s: string): string => `"${s.replace(/([\\"$`])/g, '\\$1')}"`;
 
+/**
+ * Quoting for Windows command lines (cmd.exe, PowerShell, CreateProcess): the rules node itself uses to split argv.
+ * Backslashes only need doubling when they precede a quote (or the closing one); `$` and backticks are not special.
+ */
+export function quoteForWindows(s: string): string {
+  let out = '"';
+  let backslashes = 0;
+  for (const ch of s) {
+    if (ch === '\\') {
+      backslashes++;
+    } else if (ch === '"') {
+      out += '\\'.repeat(backslashes * 2 + 1) + '"';
+      backslashes = 0;
+    } else {
+      out += '\\'.repeat(backslashes) + ch;
+      backslashes = 0;
+    }
+  }
+  return `${out}${'\\'.repeat(backslashes * 2)}"`;
+}
+
+export interface CommandStyle {
+  /** Quoting for the hook path and the original command (defaults to POSIX double quotes). */
+  quote?: (s: string) => string;
+  /** Extra hook arguments placed before `--then`, e.g. `--agent antigravity`. */
+  args?: string;
+}
+
 /** `node "<hook>"`, or `node "<hook>" --then "<original>"` to keep an existing statusLine working. */
-export function buildCommand(hookPath: string, original: string | null): string {
-  const base = `node ${quoteForShell(toPosixPath(hookPath))}`;
-  return original ? `${base} --then ${quoteForShell(original)}` : base;
+export function buildCommand(hookPath: string, original: string | null, style: CommandStyle = {}): string {
+  const quote = style.quote ?? quoteForShell;
+  const base = `node ${quote(toPosixPath(hookPath))}${style.args ? ` ${style.args}` : ''}`;
+  return original ? `${base} --then ${quote(original)}` : base;
 }
 
 export const isOurCommand = (command: unknown, hookPath: string): boolean =>

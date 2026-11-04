@@ -32,9 +32,9 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 const readSettings = () => JSON.parse(readFileSync(settingsFile, 'utf8')) as Record<string, any>;
 
 describe('status', () => {
-  it('no_claude_dir when ~/.claude is missing', async () => {
+  it('no_agent_dir when ~/.claude is missing', async () => {
     rmSync(claudeDir, { recursive: true });
-    expect(await make().status()).toBe('no_claude_dir');
+    expect(await make().status()).toBe('no_agent_dir');
   });
   it('not_connected without settings, with other statusLine, or with unreadable settings', async () => {
     expect(await make().status()).toBe('not_connected');
@@ -138,7 +138,7 @@ describe('connect', () => {
 
   it('refuses when ~/.claude does not exist', async () => {
     rmSync(claudeDir, { recursive: true });
-    await expect(make().connect()).rejects.toMatchObject({ code: 'no_claude_dir' });
+    await expect(make().connect()).rejects.toMatchObject({ code: 'no_agent_dir' });
     expect(existsSync(claudeDir)).toBe(false);
   });
 

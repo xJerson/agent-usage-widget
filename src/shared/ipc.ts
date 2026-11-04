@@ -58,12 +58,13 @@ export interface WidgetApi {
   editEnd(confirm: boolean): void;
   /** Fired when the tray asks to enter edit mode. */
   onRequestEdit(cb: () => void): () => void;
-  /** Claude Code connector: status, one-time consent prompt on the bubble, and main-process toasts. */
-  getConnectorStatus(): Promise<ConnectorStatus>;
-  onConnectorStatus(cb: (status: ConnectorStatus) => void): () => void;
-  onConnectPrompt(cb: (preview: ConnectPreview) => void): () => void;
-  getConnectPreview(): Promise<ConnectPreview | null>;
-  answerConnect(accept: boolean): void;
+  /** Agent connectors (Claude Code, Antigravity): status and the one-time consent prompt on the bubble, all keyed by agent id. */
+  getConnectorStatus(): Promise<Record<string, ConnectorStatus>>;
+  onConnectorStatus(cb: (agentId: string, status: ConnectorStatus) => void): () => void;
+  onConnectPrompt(cb: (agentId: string, preview: ConnectPreview) => void): () => void;
+  /** The consent prompts still waiting for an answer. */
+  getConnectPreview(): Promise<Record<string, ConnectPreview>>;
+  answerConnect(agentId: string, accept: boolean): void;
   /** Bubble window -> main: geometry and content for the floating windows (panel, toast, edit bar). */
   floatLayout(layout: FloatLayout): void;
   floatPanel(data: FloatPanelData | null): void;

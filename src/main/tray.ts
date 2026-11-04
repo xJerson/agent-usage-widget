@@ -32,9 +32,10 @@ function drawIcon(size: number): Electron.NativeImage {
 export interface TrayActions {
   editLayout(): void;
   resetPosition(): void;
-  connectClaude(): void;
-  disconnectClaude(): void;
-  connectorStatus(): ConnectorStatus;
+  /** One entry per agent that can be connected (empty in demo mode). */
+  connectors(): Array<{ agentId: string; name: string; status: ConnectorStatus }>;
+  connect(agentId: string): void;
+  disconnect(agentId: string): void;
 }
 
 function setOpenAtLogin(enabled: boolean): void {
@@ -48,10 +49,11 @@ export function createTray(actions: TrayActions): { tray: Tray; refresh(): void 
   const tray = new Tray(drawIcon(32));
   tray.setToolTip('Agent usage widget');
   const connectItems = (): Electron.MenuItemConstructorOptions[] => {
-    const status = actions.connectorStatus();
-    if (status === 'not_connected') return [{ label: 'Connect Claude Code…', click: actions.connectClaude }];
-    if (status === 'connected') return [{ label: 'Disconnect Claude Code', click: actions.disconnectClaude }];
-    return [];
+    return actions.connectors().flatMap(({ agentId, name, status }): Electron.MenuItemConstructorOptions[] => {
+      if (status === 'not_connected') return [{ label: `Connect ${name}…`, click: () => actions.connect(agentId) }];
+      if (status === 'connected') return [{ label: `Disconnect ${name}`, click: () => actions.disconnect(agentId) }];
+      return [];
+    });
   };
   const build = (): Electron.Menu =>
     Menu.buildFromTemplate([

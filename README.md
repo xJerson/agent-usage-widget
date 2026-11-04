@@ -3,7 +3,7 @@
 A small floating desktop widget that shows the **subscription usage limits** of your AI coding agents, so you stop opening
 the usage page of each tool. No API keys: it reads the data your agents already produce.
 
-One glass bubble per detected agent (**Claude Code** and **Codex** today). The ring around each bubble fills with your
+One glass bubble per detected agent (**Claude Code**, **Codex** and **Antigravity** today). The ring around each bubble fills with your
 5-hour usage. Click a bubble to open a detail panel with every limit window, its percentage and the time left until it resets.
 
 <p align="center">
@@ -23,7 +23,7 @@ One glass bubble per detected agent (**Claude Code** and **Codex** today). The r
 - **Detail panel.** Fixed size, one card per window (for example *Current session · 5h* and *Weekly · 7 days*) with a progress bar, reset countdown and last update.
 - **Automatic reset.** When a window passes its reset time the widget zeroes it by itself and waits for the next prompt.
 - **Move and resize like an image.** Drag to move. Double-click to enter edit mode, drag the corner handles to resize, confirm with the check button (or `Enter`) or cancel with the X (or `Esc`). Position and size are remembered.
-- **Safe Claude Code connection.** A one-time prompt, a backup of your settings, wrapping of any statusLine you already have, and a one-click disconnect.
+- **Safe connections.** Claude Code and Antigravity each get a one-time prompt, a backup of your settings, wrapping of any statusLine you already have, and a one-click disconnect.
 - **Respects reduced motion** and has keyboard-friendly buttons with labels.
 
 ## Requirements
@@ -35,6 +35,7 @@ One glass bubble per detected agent (**Claude Code** and **Codex** today). The r
 | Git | Also used by Claude Code on Windows (Git Bash), see [Claude Code integration](#claude-code-integration). |
 | Claude Pro or Max subscription | To see Claude limits. They are only exposed to subscribers. |
 | Codex signed in with a ChatGPT plan | To see Codex limits. |
+| Antigravity CLI (`agy`) with a Google AI plan | To see Antigravity limits. Tested with 1.4.12. |
 
 You only need the agents you actually use: a bubble appears for each one the widget finds.
 
@@ -49,7 +50,7 @@ npm run dev
 
 The widget appears in the bottom-right corner of your primary display. Look for the tray icon to quit or manage it.
 
-Want to see the UI without any real agent data? Run it with simulated data for both agents:
+Want to see the UI without any real agent data? Run it with simulated data for all agents:
 
 ```bash
 npm run dev:demo
@@ -130,12 +131,48 @@ mkdir -p ~/.claude/usage-widget && printf '%s' "$input" > ~/.claude/usage-widget
 `node` must be on the PATH of the shell Claude Code uses. On Windows the wrapped command runs through Git Bash; the hook
 looks for Git for Windows' `bash.exe` explicitly and never uses the WSL launcher in `System32`.
 
+## Antigravity integration
+
+The Antigravity CLI (`agy`) keeps its data in `~/.gemini/antigravity-cli` and hands its quota to its `statusLine` command as JSON
+on stdin, so the widget registers the same kind of hook there. **Nothing is changed without your consent**: the first time the
+folder is found and Antigravity is not connected, its bubble shows the same Connect / Not now buttons and **What changes?**
+caption as Claude Code, with its own one-time flag. Afterwards use the tray menu: **Connect Antigravity…** or
+**Disconnect Antigravity**.
+
+Connect works like the Claude Code one, under `~/.gemini/antigravity-cli`: it backs up `settings.json` to
+`usage-widget/backup/`, copies the hook to `usage-widget/hook.js`, and replaces `statusLine.command` with
+`node <...>/hook.js --agent antigravity`. Your existing command (for example `python C:\...\statusline.py`) is saved in
+`usage-widget/connector.json` and the hook runs it for you. Your script receives the same stdin, and its output and exit code
+pass through unchanged. If the hook fails for any reason it still runs your command. Other
+keys of `settings.json` (`model`, `permissions`, `trustedWorkspaces`, ...) are kept, and **Disconnect** puts the file back exactly
+as it was when it has not been edited since (otherwise it restores just the `statusLine` entry).
+
+The command contains **no double quotes**: Antigravity runs it roughly as `cmd /c <command>` and escapes every quote it finds, so
+node would receive literal quote characters and fail to find the hook. For that reason, on Windows, Connect refuses with a clear
+error when the hook path (under your user folder) contains a space or another cmd.exe special character; an 8.3 short path is
+not used because short names can be disabled per volume. The wrapped command runs through cmd.exe. Antigravity does not
+use Git Bash and the hook never looks up a `bash.exe`, so the WSL launcher in `System32` cannot be picked. `node` must be on the
+PATH of the shell Antigravity uses.
+
+**Privacy.** The payload also contains your account email, working directory, transcript path, session id and conversation
+title. The hook writes none of them: `usage-widget/antigravity.json` holds only the five quota buckets (`gemini-5h`,
+`gemini-weekly`, `gemini-argon-wtu-weekly`, `3p-5h` and `3p-weekly`), the `plan_tier` and a timestamp. The widget never opens
+`statusline_debug.json` or any credential file.
+
+**Limits shown.** Antigravity CLI reports individual quotas for each model family: Gemini standard (`gemini-5h`, `gemini-weekly`),
+Gemini Argon reasoning (`gemini-argon-wtu-weekly`), and third-party models (`3p-5h`, `3p-weekly`). All 5 individual quota bars are
+shown with their respective labels and reset countdowns. Antigravity reports what is **left** (`remaining_fraction`), the widget
+shows what is **used**. The plan badge is `plan_tier` without its "Google AI" prefix ("Google AI Pro" shows PRO). Like the Claude
+hook, it merges sessions per bucket (the lower remaining fraction wins inside the same window, a later reset starts a new one,
+expired windows are dropped), so an idle session cannot move your numbers backwards.
+
 ## Where the data comes from
 
 | Agent | Detected when | Source | Notes |
 | --- | --- | --- | --- |
 | Claude Code | `~/.claude` exists | `~/.claude/usage-widget/claude.json`, written by the hook | Windows of 300 and 10080 minutes from `rate_limits.five_hour` and `seven_day`. Updated after each Claude response. Without data yet, the bubble shows 0% and "Waiting for first prompt". |
 | Codex | `~/.codex/sessions` exists | The most recently active `rollout-*.jsonl` files under `~/.codex/sessions` | Reads only the tail of the 8 most recently modified files from the last 7 days and takes the `rate_limits` snapshot with the newest event timestamp. Read-only; only rate-limit fields are parsed. |
+| Antigravity | `~/.gemini/antigravity-cli` exists | `~/.gemini/antigravity-cli/usage-widget/antigravity.json`, written by the hook | Windows of 300 and 10080 minutes from `quota.gemini-5h` and `quota.gemini-weekly`, plan from `plan_tier`. Updated whenever Antigravity refreshes its status line. Only the fields above are stored. |
 
 **Claude plan badge.** To show the plan (for example PRO) in the Claude panel, the widget reads exactly one field,
 `oauthAccount.organizationType`, from `~/.claude.json` (the file in your home folder, not inside `~/.claude/`). It is read-only:
@@ -156,7 +193,7 @@ ignored. The event applies while the window is still running (its `resets_at` fr
 message and its time zone when `claude.json` has no live window) and disappears at the reset. Windows that already read 100%
 or more, from Claude or from Codex, get the same "Limit reached" state.
 
-The widget never writes into `~/.codex`. It writes into `~/.claude` only after you click Connect (and on Disconnect).
+The widget never writes into `~/.codex`. It writes into `~/.claude` or `~/.gemini/antigravity-cli` only after you click Connect for that agent (and on Disconnect).
 
 Codex's `/status` shows what is **left** (56% left) while the widget shows what is **used** (44%). They are the same number.
 
@@ -175,9 +212,9 @@ one-time prompt all have unit tests that never touch your real `~/.claude`.
 
 | Variable | Effect |
 | --- | --- |
-| `USAGE_WIDGET_DEMO=1` | Simulated data for both agents (Codex disappears for 10s every 50s to show live add/remove). Never touches `~/.claude`. |
+| `USAGE_WIDGET_DEMO=1` | Simulated data for all agents (Codex disappears for 10s every 50s to show live add/remove). Never touches `~/.claude` or `~/.gemini`. |
 | `USAGE_WIDGET_DEBUG=1` | Logs usage updates and renderer console output to stdout. |
-| `USAGE_WIDGET_HOME=<dir>` | Looks for `.claude` and `.codex` under `<dir>` instead of the real home (safe testing). |
+| `USAGE_WIDGET_HOME=<dir>` | Looks for `.claude`, `.codex` and `.gemini` under `<dir>` instead of the real home (safe testing). |
 | `USAGE_WIDGET_USER_DATA=<dir>` | Overrides Electron's `userData` folder (layout and consent state). |
 | `USAGE_WIDGET_SCREENSHOT=<file.png>` | Writes a PNG of the widget after 5s and quits. |
 
@@ -189,7 +226,7 @@ If your shell sets `ELECTRON_RUN_AS_NODE`, unset it first or the app will not st
 src/shared     types, IPC contract and pure logic (labels, levels, reset/expiry, geometry, resize math)
 src/main       Electron main process
   providers/   one UsageProvider per agent: pure parsers + thin file IO
-  connectors/  Claude Code connect/disconnect and the statusLine hook
+  connectors/  Claude Code and Antigravity connect/disconnect, and the shared statusLine hook
   usageService registry and reconcile loop (rescan every 5s, fs.watch with debounce)
   widgetController, floatWindows   window position, scale, drag, edit mode and the separate panel/toast/edit-bar windows
   tray.ts      tray icon (drawn in code) and menu
@@ -197,8 +234,8 @@ src/preload    strict contextBridge API (window.widget)
 src/renderer   React UI (bubbles, panel, edit frame and bar, toast)
 ```
 
-The design is hexagonal: `UsageProvider` (in `src/shared/types.ts`) is the port and `ClaudeProvider` and `CodexProvider` are
-adapters. Parsing is pure and unit-tested; file access is a thin layer around it.
+The design is hexagonal: `UsageProvider` (in `src/shared/types.ts`) is the port and `ClaudeProvider`, `CodexProvider` and `AntigravityProvider`
+are adapters. Parsing is pure and unit-tested; file access is a thin layer around it.
 
 ### Add another agent
 
@@ -218,14 +255,15 @@ Units: `UsageWindow.resetsAt` is epoch **seconds** (as both sources give it) and
 | Claude bubble stays at 0% with "Waiting for first prompt" | Connect Claude Code from the tray menu, then send one prompt. Limits only exist for Pro/Max accounts and only after the first response of a session. |
 | Claude numbers look old | They refresh after each Claude response. Between messages they can lag a few points. |
 | No Codex bubble | Codex must have run at least once so that `~/.codex/sessions` exists. |
+| No Antigravity bubble, or it stays at "Waiting for first prompt" | The `~/.gemini/antigravity-cli` folder must exist. Connect Antigravity from the tray menu, then use `agy` once so it runs its status line. |
 | Numbers differ from Codex `/status` | `/status` shows the percentage left, the widget the percentage used. A small lag can also appear until Codex writes its next event. |
-| Your status bar looks different after connecting | Run **Disconnect Claude Code** (restores your original) and open an issue with your statusLine command. |
+| Your status bar looks different after connecting | Run **Disconnect Claude Code** or **Disconnect Antigravity** (restores your original) and open an issue with your statusLine command. |
 
 ## Known limits
 
 - The glass blur applies to the widget's own content only; a transparent Electron window cannot blur the desktop behind it.
 - The Claude plan badge comes from `~/.claude.json` (see above). Only `claude_pro` is verified; other plan types (Max, Team, Enterprise) may show no badge, or MAX unverified, until checked against a real account.
-- Both sources update when the agent writes data, so the widget is near real time while you work and shows the last known value while you are idle.
+- All sources update when the agent writes data, so the widget is near real time while you work and shows the last known value while you are idle.
 - Windows 11 is the only tested platform. There is no installer yet (no electron-builder); `npm run build` produces the runnable bundle.
 - Not yet verified on multi-monitor setups.
 
@@ -236,5 +274,5 @@ Units: `UsageWindow.resetsAt` is epoch **seconds** (as both sources give it) and
 ## Roadmap
 
 - Installer with electron-builder.
-- Gemini support, once it is confirmed that it exposes its limits.
+- Antigravity: show the `3p-*` and `gemini-argon-wtu-weekly` quotas. (Done)
 - Per-agent windows that can be moved independently.

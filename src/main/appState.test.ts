@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { loadAppState, saveAppState } from './appState';
+import { isPrompted, loadAppState, markPrompted, saveAppState } from './appState';
 import { ConnectService, type ConnectorLike } from './connectService';
 import type { ConnectorStatus, ConnectPreview } from '../shared/types';
 
@@ -23,6 +23,33 @@ describe('appState', () => {
   it('round-trips', () => {
     saveAppState(file, { connectPrompted: true });
     expect(loadAppState(file)).toEqual({ connectPrompted: true });
+  });
+});
+
+describe('per-agent prompted flag', () => {
+  it('claude keeps the legacy connectPrompted key, so an existing state file still counts', () => {
+    writeFileSync(file, '{"connectPrompted":true}');
+    expect(isPrompted(file, 'claude')).toBe(true);
+    expect(isPrompted(file, 'antigravity')).toBe(false);
+  });
+  it('agents are independent and marking one keeps the others', () => {
+    markPrompted(file, 'antigravity');
+    expect(isPrompted(file, 'antigravity')).toBe(true);
+    expect(isPrompted(file, 'claude')).toBe(false);
+    markPrompted(file, 'claude');
+    expect(isPrompted(file, 'claude')).toBe(true);
+    expect(isPrompted(file, 'antigravity')).toBe(true);
+  });
+  it('saveAppState keeps the keys it does not own', () => {
+    markPrompted(file, 'antigravity');
+    saveAppState(file, { connectPrompted: true });
+    expect(isPrompted(file, 'antigravity')).toBe(true);
+  });
+  it('survives a garbage file', () => {
+    writeFileSync(file, '[1,');
+    expect(isPrompted(file, 'antigravity')).toBe(false);
+    markPrompted(file, 'antigravity');
+    expect(isPrompted(file, 'antigravity')).toBe(true);
   });
 });
 
@@ -80,7 +107,7 @@ describe('ConnectService one-time prompt', () => {
   });
 
   it('does not prompt when already connected or Claude is not installed, nor consume the flag', async () => {
-    for (const status of ['connected', 'no_claude_dir'] as const) {
+    for (const status of ['connected', 'no_agent_dir'] as const) {
       const { svc, sent } = setup(status);
       await svc.init();
       expect(sent.some(([c]) => c === 'connect:prompt')).toBe(false);
@@ -148,5 +175,43 @@ describe('ConnectService actions', () => {
     expect(connector.calls).toContain('disconnect');
     expect(sent).toContainEqual(['connector:status', 'not_connected']);
     expect(readFileSync(file, 'utf8')).toContain('connectPrompted');
+  });
+});
+
+describe('ConnectService for another agent', () => {
+  const AGY = { id: 'antigravity', name: 'Antigravity' };
+  const setupAgy = (status: ConnectorStatus) => {
+    const connector = fakeConnector(status);
+    const sent: Array<[string, unknown]> = [];
+    const svc = new ConnectService(connector, file, (channel, payload) => sent.push([channel, payload]), AGY);
+    return { connector, sent, svc };
+  };
+
+  it('prompts once with its own flag, independent of Claude', async () => {
+    saveAppState(file, { connectPrompted: true }); // Claude already prompted
+    const { svc, sent } = setupAgy('not_connected');
+    await svc.init();
+    expect(sent.filter(([c]) => c === 'connect:prompt')).toHaveLength(1);
+    expect(isPrompted(file, 'antigravity')).toBe(true);
+    const again = setupAgy('not_connected');
+    await again.svc.init();
+    expect(again.sent.some(([c]) => c === 'connect:prompt')).toBe(false);
+  });
+
+  it('does not consume the Claude flag', async () => {
+    const { svc } = setupAgy('not_connected');
+    await svc.init();
+    expect(loadAppState(file).connectPrompted).toBe(false);
+  });
+
+  it('names the agent in toasts', async () => {
+    const { svc, sent } = setupAgy('not_connected');
+    await svc.init();
+    await svc.answer(true);
+    const toast = sent.filter(([c]) => c === 'toast').pop()?.[1] as { message: string };
+    expect(toast.message).toMatch(/^Antigravity connected/);
+    await svc.disconnect();
+    const bye = sent.filter(([c]) => c === 'toast').pop()?.[1] as { message: string };
+    expect(bye.message).toMatch(/^Antigravity disconnected/);
   });
 });

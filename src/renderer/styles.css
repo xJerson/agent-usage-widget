@@ -174,7 +174,7 @@ body.dragging, body.dragging .bubble { cursor: grabbing; }
   .panel { opacity: 1; transform: none; }
 }
 
-/* One-time Claude Code consent, shown on the bubble itself */
+/* One-time connector consent (Claude Code, Antigravity), shown on the bubble itself */
 .bubble-host { position: relative; width: 104px; height: 104px; flex: none; }
 .logo { transition: opacity 0.35s ease; }
 .bubble.consenting .logo { opacity: 0.38; }
@@ -190,7 +190,7 @@ body.dragging, body.dragging .bubble { cursor: grabbing; }
 .consent-buttons .eb-btn.cancel { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 12px rgba(229, 72, 77, 0.35); background: rgba(60, 24, 26, 0.85); }
 .consent-tag {
   position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%); pointer-events: auto; cursor: pointer; white-space: nowrap;
-  font: inherit; font-size: 10px; font-weight: 600; padding: 3px 7px; max-width: 104px; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; border-radius: 99px; color: #fff; background: #3a3631;
+  font: inherit; font-size: 10px; font-weight: 600; padding: 3px 7px; max-width: 116px; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; border-radius: 99px; color: #fff; background: #3a3631;
   border: 1px solid rgba(255, 255, 255, 0.18); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 12px var(--glow, transparent);
 }
 .consent-tag:hover { border-color: #f2b08c; }

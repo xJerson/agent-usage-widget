@@ -1,6 +1,6 @@
 import { IPC } from '../shared/ipc';
 import type { ConnectorStatus, ConnectPreview, ToastMessage } from '../shared/types';
-import { loadAppState, saveAppState } from './appState';
+import { isPrompted, markPrompted } from './appState';
 
 export interface ConnectorLike {
   status(): Promise<ConnectorStatus>;
@@ -12,8 +12,14 @@ export interface ConnectorLike {
 
 type Send = (channel: string, payload: unknown) => void;
 
+export interface ConnectAgent {
+  id: string;
+  /** Shown in toasts, e.g. "Claude Code". */
+  name: string;
+}
+
 /**
- * Orchestrates the Claude Code connection: one-time consent on the bubble, tray actions, toasts.
+ * Orchestrates one agent's connection: one-time consent on its bubble, tray actions, toasts.
  * The consent buttons are shown at most once automatically; the flag is persisted the moment they are shown.
  */
 export class ConnectService {
@@ -25,6 +31,7 @@ export class ConnectService {
     private readonly connector: ConnectorLike,
     private readonly stateFile: string,
     private readonly send: Send,
+    private readonly agent: ConnectAgent = { id: 'claude', name: 'Claude Code' },
   ) {}
 
   /** Called whenever the status changes (the tray rebuilds its menu from it). */
@@ -42,12 +49,12 @@ export class ConnectService {
       await this.connector.updateHook().catch(() => undefined);
       return;
     }
-    if (this.status === 'not_connected' && !loadAppState(this.stateFile).connectPrompted) {
+    if (this.status === 'not_connected' && !isPrompted(this.stateFile, this.agent.id)) {
       await this.showPrompt(true);
     }
   }
 
-  /** Tray: "Connect Claude Code…" shows the buttons on the bubble again, without touching the one-time flag. */
+  /** Tray: "Connect <agent>…" shows the buttons on the bubble again, without touching the one-time flag. */
   async requestPrompt(): Promise<void> {
     await this.refreshStatus();
     if (this.status === 'not_connected') await this.showPrompt(false);
@@ -57,10 +64,10 @@ export class ConnectService {
     try {
       this.preview = await this.connector.preview();
     } catch (e) {
-      this.toast(`Could not read Claude settings: ${(e as Error).message}`, 'error');
+      this.toast(`Could not read ${this.agent.name} settings: ${(e as Error).message}`, 'error');
       return;
     }
-    if (persistFlag) saveAppState(this.stateFile, { connectPrompted: true });
+    if (persistFlag) markPrompted(this.stateFile, this.agent.id);
     this.send(IPC.connectPrompt, this.preview);
   }
 
@@ -70,9 +77,9 @@ export class ConnectService {
     try {
       const res = await this.connector.connect();
       await this.refreshStatus();
-      this.toast(res.changed ? 'Claude Code connected. Usage appears after your next prompt.' : 'Claude Code is already connected');
+      this.toast(res.changed ? `${this.agent.name} connected. Usage appears after your next prompt.` : `${this.agent.name} is already connected`);
     } catch (e) {
-      this.toast(`Could not connect Claude Code: ${(e as Error).message}`, 'error');
+      this.toast(`Could not connect ${this.agent.name}: ${(e as Error).message}`, 'error');
     }
   }
 
@@ -80,9 +87,9 @@ export class ConnectService {
     try {
       const res = await this.connector.disconnect();
       await this.refreshStatus();
-      this.toast(res.changed ? 'Claude Code disconnected. Your statusLine was restored.' : 'Nothing to disconnect');
+      this.toast(res.changed ? `${this.agent.name} disconnected. Your statusLine was restored.` : 'Nothing to disconnect');
     } catch (e) {
-      this.toast(`Could not disconnect Claude Code: ${(e as Error).message}`, 'error');
+      this.toast(`Could not disconnect ${this.agent.name}: ${(e as Error).message}`, 'error');
     }
   }
 

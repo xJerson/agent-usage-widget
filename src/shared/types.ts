@@ -13,6 +13,12 @@ export interface UsageWindow {
   resetsAt: number | null;
   /** True when the limit has been hit (100% from the data, or detected from Claude Code's own message). */
   limitReached?: boolean;
+  /** Unique id or bucket key for this window (e.g. 'gemini-5h'). */
+  id?: string;
+  /** Human-readable label for this window (e.g. 'Gemini · 5h'). Defaults to windowLabel(minutes). */
+  label?: string;
+  /** Explicit display order in the panel. When omitted, falls back to `minutes`. */
+  order?: number;
 }
 
 export interface UsageSnapshot {
@@ -67,12 +73,23 @@ export interface LayoutState {
   scale: number;
 }
 
-export type ConnectorStatus = 'no_claude_dir' | 'not_connected' | 'connected';
+/** `no_agent_dir`: the agent's data folder (e.g. ~/.claude) does not exist, so there is nothing to connect. */
+export type ConnectorStatus = 'no_agent_dir' | 'not_connected' | 'connected';
 
-/** The statusLine entry of ~/.claude/settings.json before and after connecting (null = no entry). */
+/** The statusLine entry of the agent's settings.json before and after connecting (null = no entry). */
 export interface ConnectPreview {
   before: unknown;
   after: unknown;
+}
+
+/** Pushed to the bubble window; every connector event says which agent it belongs to. */
+export interface ConnectorStatusEvent {
+  agentId: string;
+  status: ConnectorStatus;
+}
+export interface ConnectPromptEvent {
+  agentId: string;
+  preview: ConnectPreview;
 }
 
 export interface ToastMessage {

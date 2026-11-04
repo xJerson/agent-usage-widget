@@ -36,6 +36,35 @@ export function CodexMark({ color, size }: { color: string; size: number }) {
   );
 }
 
+/** Antigravity / Gemini mark: Google's iconic 4-pointed sparkle star with secondary spark. */
+export function AntigravityMark({ color, size }: { color?: string; size: number }) {
+  const gradId = `gemini-grad-${size}`;
+  return (
+    <svg className="mk" width={size} height={size} viewBox="-12 -12 24 24" aria-hidden="true">
+      <defs>
+        <linearGradient id={gradId} x1="-10" y1="-10" x2="10" y2="10" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#4E82EE" />
+          <stop offset="45%" stopColor="#7C75FF" />
+          <stop offset="100%" stopColor="#A87FFB" />
+        </linearGradient>
+      </defs>
+      {/* Primary Gemini Sparkle */}
+      <path
+        fill={color && color !== '#5fd3c4' && color !== '#7be0d2' ? color : `url(#${gradId})`}
+        d="M 0 -10.5 C 0 -2.4 2.4 0 10.5 0 C 2.4 0 0 2.4 0 10.5 C 0 2.4 -2.4 0 -10.5 0 C -2.4 0 0 -2.4 0 -10.5 Z"
+      />
+      {/* Secondary Companion Spark */}
+      <path
+        fill="#A87FFB"
+        opacity="0.85"
+        d="M 6.5 -8.8 C 6.5 -7.2 7.2 -6.5 8.8 -6.5 C 7.2 -6.5 6.5 -5.8 6.5 -4.2 C 6.5 -5.8 5.8 -6.5 4.2 -6.5 C 5.8 -6.5 6.5 -7.2 6.5 -8.8 Z"
+      />
+    </svg>
+  );
+}
+
+export const GeminiMark = AntigravityMark;
+
 /** Neutral mark for agents that have no dedicated logo yet. */
 export function GenericMark({ color, size }: { color: string; size: number }) {
   return (

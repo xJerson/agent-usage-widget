@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import type { UsageEntry } from '../../shared/types';
 import { headWindow, levelOf, resolveWindow } from '../../shared/usage';
+import { CONNECTABLE_AGENTS } from '../../shared/connectAgents';
 import { statusGradient } from '../lib/colors';
 import { renderLogo } from '../lib/registry';
 
@@ -16,7 +17,7 @@ interface Props {
   editing: boolean;
   onToggle(): void;
   onEdit(): void;
-  /** One-time Claude Code consent: dimmed logo, confirm / cancel buttons and a caption on top of the bubble. */
+  /** One-time connector consent: dimmed logo, confirm / cancel buttons and a caption on top of the bubble. */
   consent?: { onAnswer(accept: boolean): void; onInfo(): void } | null;
 }
 
@@ -36,6 +37,8 @@ export function Bubble({ entry, now, open, editing, onToggle, onEdit, consent = 
   const ov = consent ?? last.current;
 
   const { agent, snapshot } = entry;
+  const connectName = CONNECTABLE_AGENTS[agent.id]?.name ?? agent.name;
+  const connectCaption = CONNECTABLE_AGENTS[agent.id]?.caption ?? agent.name;
   const head = snapshot ? headWindow(snapshot.windows) : null;
   const headState = head ? resolveWindow(head, now) : null;
   const pct = headState?.usedPercent ?? 0;
@@ -149,14 +152,14 @@ export function Bubble({ entry, now, open, editing, onToggle, onEdit, consent = 
               <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
             </svg>
           </button>
-          <button type="button" className="eb-btn ok" aria-label="Connect Claude Code" title="Connect" onClick={() => ov.onAnswer(true)}>
+          <button type="button" className="eb-btn ok" aria-label={`Connect ${connectName}`} title="Connect" onClick={() => ov.onAnswer(true)}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M3 8.5l3.2 3.2L13 4.8" />
             </svg>
           </button>
         </div>
-        <button type="button" className="consent-tag" aria-label="Connect Claude Code? Show what changes" title="What changes?" onClick={ov.onInfo}>
-          Connect Claude?
+        <button type="button" className="consent-tag" aria-label={`Connect ${connectName}? Show what changes`} title="What changes?" onClick={ov.onInfo}>
+          Connect {connectCaption}?
         </button>
       </div>
     )}

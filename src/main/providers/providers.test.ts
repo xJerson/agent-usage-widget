@@ -2,8 +2,10 @@ import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { AntigravityProvider } from './antigravity';
 import { ClaudeProvider } from './claude';
 import { CodexProvider } from './codex';
+import { createProviders } from './index';
 
 let home: string;
 beforeEach(() => {
@@ -180,5 +182,68 @@ describe('CodexProvider', () => {
     const p = mk();
     expect(p.watchTargets()).toEqual([join(home, '.codex', 'sessions')]);
     expect(p.watchRecursive).toBe(true);
+  });
+});
+
+describe('AntigravityProvider', () => {
+  const dir = () => join(home, '.gemini', 'antigravity-cli');
+  const dataDir = () => join(dir(), 'usage-widget');
+
+  it('is detected only when ~/.gemini/antigravity-cli exists, and has no data yet', async () => {
+    const p = new AntigravityProvider(home);
+    expect(await p.detect()).toBe(false);
+    mkdirSync(join(home, '.gemini'), { recursive: true });
+    expect(await p.detect()).toBe(false); // Gemini CLI alone is not Antigravity
+    mkdirSync(dir());
+    expect(await p.detect()).toBe(true);
+    expect(await p.read()).toBeNull();
+  });
+
+  it('reads the hook file and uses its stored updated_at', async () => {
+    mkdirSync(dataDir(), { recursive: true });
+    writeFileSync(
+      join(dataDir(), 'antigravity.json'),
+      JSON.stringify({
+        v: 1,
+        plan_tier: 'Google AI Pro',
+        quota: { 'gemini-5h': { remaining_fraction: 0.75, reset_time: '2026-11-04T00:43:20.000Z' } },
+        updated_at: 1_700_000_000_000,
+      }),
+    );
+    const snap = await new AntigravityProvider(home).read();
+    expect(snap?.plan).toBe('Pro');
+    expect(snap?.updatedAt).toBe(1_700_000_000_000);
+    expect(snap?.windows).toEqual([
+      { id: 'gemini-5h', label: 'Gemini · 5h', order: 1, minutes: 300, usedPercent: 25, resetsAt: Date.parse('2026-11-04T00:43:20Z') / 1000 },
+      { id: 'gemini-weekly', label: 'Gemini · Weekly (7d)', order: 2, minutes: 10080, usedPercent: 0, resetsAt: null },
+      { id: 'gemini-argon-wtu-weekly', label: 'Gemini Argon · WTU Weekly', order: 3, minutes: 10080, usedPercent: 0, resetsAt: null },
+      { id: '3p-5h', label: 'Third-party (3P) · 5h', order: 4, minutes: 300, usedPercent: 0, resetsAt: null },
+      { id: '3p-weekly', label: 'Third-party (3P) · Weekly (7d)', order: 5, minutes: 10080, usedPercent: 0, resetsAt: null },
+    ]);
+  });
+
+  it('returns null for a half-written file instead of throwing', async () => {
+    mkdirSync(dataDir(), { recursive: true });
+    writeFileSync(join(dataDir(), 'antigravity.json'), '{"quota":{"gemini-5');
+    expect(await new AntigravityProvider(home, { retryDelayMs: 1 }).read()).toBeNull();
+  });
+
+  it('never reads statusline_debug.json, even when it holds quota data and an email', async () => {
+    mkdirSync(dir(), { recursive: true });
+    const debug = { email: 'a@b.c', quota: { 'gemini-5h': { remaining_fraction: 0.1, reset_time: '2026-11-04T00:43:20Z' } } };
+    writeFileSync(join(dir(), 'statusline_debug.json'), JSON.stringify(debug));
+    expect(await new AntigravityProvider(home).read()).toBeNull();
+  });
+
+  it('watches the data dir when it exists, otherwise the CLI dir', () => {
+    const p = new AntigravityProvider(home);
+    mkdirSync(dir(), { recursive: true });
+    expect(p.watchTargets()).toEqual([dir()]);
+    mkdirSync(dataDir());
+    expect(p.watchTargets()).toEqual([dataDir()]);
+  });
+
+  it('is registered after Claude and Codex', () => {
+    expect(createProviders(home).map((p) => p.id)).toEqual(['claude', 'codex', 'antigravity']);
   });
 });

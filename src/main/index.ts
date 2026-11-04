@@ -2,7 +2,9 @@ import { app, BrowserWindow, ipcMain, powerMonitor, screen, session, type IpcMai
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { IPC } from '../shared/ipc';
-import { ConnectService } from './connectService';
+import { ConnectService, type ConnectAgent, type ConnectorLike } from './connectService';
+import type { ConnectorStatus, ConnectorStatusEvent, ConnectPreview, ConnectPromptEvent } from '../shared/types';
+import { AntigravityConnector } from './connectors/antigravityConnector';
 import { ClaudeConnector } from './connectors/claudeConnector';
 import { createDemoProviders } from './demo';
 import { FloatWindows } from './floatWindows';
@@ -13,7 +15,7 @@ import { UsageService } from './usageService';
 import { WidgetController } from './widgetController';
 
 const DEMO = process.env['USAGE_WIDGET_DEMO'] === '1';
-// Test hook: point every ~/.claude / ~/.codex lookup at another directory (Electron itself does not start
+// Test hook: point every ~/.claude / ~/.codex / ~/.gemini lookup at another directory (Electron itself does not start
 // reliably with an overridden USERPROFILE on Windows).
 const HOME_OVERRIDE = process.env['USAGE_WIDGET_HOME'] || undefined;
 const SCREENSHOT = process.env['USAGE_WIDGET_SCREENSHOT'];
@@ -103,15 +105,37 @@ async function main(): Promise<void> {
   ipcMain.on(IPC.editBegin, (e) => own(e) && controller.editBegin());
   ipcMain.on(IPC.editEnd, (e, confirm: unknown) => own(e) && controller.editEnd(confirm === true));
 
-  // Claude Code connector (disabled in demo mode so simulated runs never touch ~/.claude or persist consent state).
+  // Agent connectors (disabled in demo mode so simulated runs never touch ~/.claude, ~/.gemini or persist consent state).
   const send = (channel: string, payload: unknown): void => {
     if (channel === IPC.toast) floats?.showToast(payload as never); // toasts live in their own window
     else if (!win.isDestroyed()) win.webContents.send(channel, payload);
   };
-  const connect = DEMO ? null : new ConnectService(new ClaudeConnector(HOME_OVERRIDE), join(app.getPath('userData'), 'app-state.json'), send);
-  ipcMain.handle(IPC.connectorGetStatus, (e) => (e.sender === win.webContents ? (connect?.status ?? 'no_claude_dir') : 'no_claude_dir'));
-  ipcMain.handle(IPC.connectPreviewGet, (e) => (e.sender === win.webContents ? (connect?.currentPreview() ?? null) : null));
-  ipcMain.on(IPC.connectAnswer, (e, accept: unknown) => own(e) && void connect?.answer(accept === true));
+  // Each service reports for one agent; connector events carry the agent id so the renderer can tell them apart.
+  const sendFor =
+    (agentId: string) =>
+    (channel: string, payload: unknown): void => {
+      if (channel === IPC.connectPrompt) send(channel, { agentId, preview: payload as ConnectPreview } satisfies ConnectPromptEvent);
+      else if (channel === IPC.connectorStatus) send(channel, { agentId, status: payload as ConnectorStatus } satisfies ConnectorStatusEvent);
+      else send(channel, payload);
+    };
+  const stateFile = join(app.getPath('userData'), 'app-state.json');
+  const agents: Array<{ agent: ConnectAgent; connector: ConnectorLike }> = DEMO
+    ? []
+    : [
+        { agent: { id: 'claude', name: 'Claude Code' }, connector: new ClaudeConnector(HOME_OVERRIDE) },
+        { agent: { id: 'antigravity', name: 'Antigravity' }, connector: new AntigravityConnector(HOME_OVERRIDE) },
+      ];
+  const connectors = agents.map(({ agent, connector }) => ({ agent, service: new ConnectService(connector, stateFile, sendFor(agent.id), agent) }));
+  const connect = new Map(connectors.map(({ agent, service }) => [agent.id, service]));
+  ipcMain.handle(IPC.connectorGetStatus, (e) =>
+    e.sender === win.webContents ? Object.fromEntries([...connect].map(([id, s]) => [id, s.status])) : {},
+  );
+  ipcMain.handle(IPC.connectPreviewGet, (e) =>
+    e.sender === win.webContents ? Object.fromEntries([...connect].flatMap(([id, s]) => (s.currentPreview() ? [[id, s.currentPreview()]] : []))) : {},
+  );
+  ipcMain.on(IPC.connectAnswer, (e, agentId: unknown, accept: unknown) => {
+    if (own(e) && typeof agentId === 'string') void connect.get(agentId)?.answer(accept === true);
+  });
 
   service.onChange((entries) => {
     log('usage', entries.map((x) => `${x.agent.id}:${x.snapshot?.windows.map((w) => Math.round(w.usedPercent)).join('/') ?? '-'}`).join(' '));
@@ -131,15 +155,15 @@ async function main(): Promise<void> {
   const trayHandle = createTray({
     editLayout: () => controller.requestEdit(),
     resetPosition: () => controller.resetPosition(),
-    connectClaude: () => void connect?.requestPrompt(),
-    disconnectClaude: () => void connect?.disconnect(),
-    connectorStatus: () => connect?.status ?? 'no_claude_dir',
+    connectors: () => connectors.map(({ agent, service }) => ({ agentId: agent.id, name: agent.name, status: service.status })),
+    connect: (agentId) => void connect.get(agentId)?.requestPrompt(),
+    disconnect: (agentId) => void connect.get(agentId)?.disconnect(),
   });
-  connect?.onStatusChange(() => trayHandle.refresh());
+  for (const { service } of connectors) service.onStatusChange(() => trayHandle.refresh());
   await service.start();
-  if (connect) {
-    await connect.init().catch((e) => log('connector init failed', e));
-    log('connector status', connect.status);
+  for (const { agent, service: s } of connectors) {
+    await s.init().catch((e) => log(`${agent.id} connector init failed`, e));
+    log(`${agent.id} connector status`, s.status);
   }
   log('started', DEMO ? '(demo)' : '');
 

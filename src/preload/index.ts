@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC, type WidgetApi } from '../shared/ipc';
+import type { ConnectorStatusEvent, ConnectPromptEvent } from '../shared/types';
 
 function subscribe<T>(channel: string, cb: (payload: T) => void): () => void {
   const listener = (_e: Electron.IpcRendererEvent, payload: T): void => cb(payload);
@@ -23,10 +24,10 @@ const api: WidgetApi = {
   editEnd: (confirm) => ipcRenderer.send(IPC.editEnd, confirm === true),
   onRequestEdit: (cb) => subscribe<undefined>(IPC.requestEdit, () => cb()),
   getConnectorStatus: () => ipcRenderer.invoke(IPC.connectorGetStatus),
-  onConnectorStatus: (cb) => subscribe(IPC.connectorStatus, cb),
-  onConnectPrompt: (cb) => subscribe(IPC.connectPrompt, cb),
+  onConnectorStatus: (cb) => subscribe<ConnectorStatusEvent>(IPC.connectorStatus, (e) => cb(e.agentId, e.status)),
+  onConnectPrompt: (cb) => subscribe<ConnectPromptEvent>(IPC.connectPrompt, (e) => cb(e.agentId, e.preview)),
   getConnectPreview: () => ipcRenderer.invoke(IPC.connectPreviewGet),
-  answerConnect: (accept) => ipcRenderer.send(IPC.connectAnswer, accept === true),
+  answerConnect: (agentId, accept) => ipcRenderer.send(IPC.connectAnswer, agentId, accept === true),
   floatLayout: (layout) => ipcRenderer.send(IPC.floatLayout, layout),
   floatPanel: (data) => ipcRenderer.send(IPC.floatPanel, data),
   floatToast: (toast) => ipcRenderer.send(IPC.floatToast, toast),

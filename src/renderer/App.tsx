@@ -17,8 +17,9 @@ export function App() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [scale, setScale] = useState(1);
-  const [prompt, setPrompt] = useState<ConnectPreview | null>(null);
-  const [connector, setConnector] = useState<ConnectorStatus>('no_claude_dir');
+  // Per agent id: the consent prompts waiting for an answer, and each connector's status.
+  const [prompts, setPrompts] = useState<Record<string, ConnectPreview>>({});
+  const [connectors, setConnectors] = useState<Record<string, ConnectorStatus>>({});
   const [natural, setNatural] = useState({ width: 0, height: 0 });
 
   const shellRef = useRef<HTMLDivElement>(null);
@@ -31,18 +32,21 @@ export function App() {
     window.widget.floatToast({ message, kind });
   }, []);
 
-  // Claude Code connector: status and the one-time consent shown on the bubble.
+  // Agent connectors (Claude Code, Antigravity): status and the one-time consent shown on the bubble.
   useEffect(() => {
-    void window.widget.getConnectorStatus().then(setConnector);
-    void window.widget.getConnectPreview().then((p) => p && setPrompt(p));
-    const offs = [window.widget.onConnectorStatus(setConnector), window.widget.onConnectPrompt(setPrompt)];
+    void window.widget.getConnectorStatus().then(setConnectors);
+    void window.widget.getConnectPreview().then((p) => setPrompts((cur) => ({ ...p, ...cur })));
+    const offs = [
+      window.widget.onConnectorStatus((agentId, status) => setConnectors((cur) => ({ ...cur, [agentId]: status }))),
+      window.widget.onConnectPrompt((agentId, preview) => setPrompts((cur) => ({ ...cur, [agentId]: preview }))),
+    ];
     return () => offs.forEach((off) => off());
   }, []);
 
-  const answerConnect = useCallback((accept: boolean) => {
-    setPrompt(null);
-    setOpenId((id) => (id === 'claude' ? null : id));
-    window.widget.answerConnect(accept);
+  const answerConnect = useCallback((agentId: string, accept: boolean) => {
+    setPrompts(({ [agentId]: _answered, ...rest }) => rest);
+    setOpenId((id) => (id === agentId ? null : id));
+    window.widget.answerConnect(agentId, accept);
   }, []);
 
   // Persisted scale + restores after a cancelled edit.
@@ -119,12 +123,16 @@ export function App() {
       openEntry
         ? {
             entry: openEntry,
-            preview: openEntry.agent.id === 'claude' ? prompt : null,
-            hint: connectHintFor({ agentId: openEntry.agent.id, status: connector, consentVisible: prompt !== null }),
+            preview: prompts[openEntry.agent.id] ?? null,
+            hint: connectHintFor({
+              agentId: openEntry.agent.id,
+              status: connectors[openEntry.agent.id] ?? 'no_agent_dir',
+              consentVisible: openEntry.agent.id in prompts,
+            }),
           }
         : null,
     );
-  }, [openEntry, prompt, connector]);
+  }, [openEntry, prompts, connectors]);
 
   const enterEdit = useCallback(() => {
     if (editingRef.current) return;
@@ -177,8 +185,11 @@ export function App() {
                   onToggle={() => setOpenId((id) => (id === entry.agent.id ? null : entry.agent.id))}
                   onEdit={enterEdit}
                   consent={
-                    entry.agent.id === 'claude' && prompt && !editing
-                      ? { onAnswer: answerConnect, onInfo: () => setOpenId((id) => (id === 'claude' ? null : 'claude')) }
+                    prompts[entry.agent.id] && !editing
+                      ? {
+                          onAnswer: (accept) => answerConnect(entry.agent.id, accept),
+                          onInfo: () => setOpenId((id) => (id === entry.agent.id ? null : entry.agent.id)),
+                        }
                       : null
                   }
                 />

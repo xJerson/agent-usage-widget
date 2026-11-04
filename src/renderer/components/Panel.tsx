@@ -1,6 +1,7 @@
 import { forwardRef, type CSSProperties } from 'react';
 import type { ConnectPreview, UsageEntry } from '../../shared/types';
 import { formatAgo, formatRemaining, levelOf, resolveWindow, windowLabel } from '../../shared/usage';
+import { CONNECTABLE_AGENTS } from '../../shared/connectAgents';
 import { statusGradient } from '../lib/colors';
 import { renderLogo } from '../lib/registry';
 
@@ -23,8 +24,9 @@ interface PanelProps {
 
 export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel({ entry, now, preview = null, hint = null, style, shown = false }, ref) {
   const { agent, snapshot } = entry;
-  const windows = snapshot ? [...snapshot.windows].sort((x, y) => x.minutes - y.minutes) : [];
+  const windows = snapshot ? [...snapshot.windows].sort((x, y) => (x.order ?? x.minutes) - (y.order ?? y.minutes)) : [];
   const plan = (snapshot?.plan || agent.planLabel).toUpperCase();
+  const connect = CONNECTABLE_AGENTS[agent.id] ?? { name: agent.name, folder: '' };
 
   return (
     <div ref={ref} style={style} id={`p-${agent.id}`} className={`panel open${shown ? ' in' : ''}`} role="dialog" aria-label={`${agent.name} usage limits`}>
@@ -47,7 +49,7 @@ export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel({ ent
         <div className="changes">
           <div className="m-label">What changes?</div>
           <p>
-            Claude Code will run a small hook (saved in <code>~/.claude/usage-widget</code>) as its statusLine command, so the
+            {connect.name} will run a small hook (saved in <code>{connect.folder}</code>) as its statusLine command, so the
             widget can read your limits. An existing statusLine keeps running unchanged, a backup of settings.json is saved
             first, and you can disconnect from the tray menu.
           </p>
@@ -68,11 +70,13 @@ export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel({ ent
       {windows.map((w) => {
         const r = resolveWindow(w, now);
         const [ca, cb] = statusGradient(agent, levelOf(r.usedPercent));
+        const label = w.label ?? windowLabel(w.minutes);
+        const key = w.id ?? `${w.minutes}-${w.label ?? ''}`;
         return (
-          <div className={`metric${r.limitReached ? ' limit' : ''}`} key={w.minutes}>
+          <div className={`metric${r.limitReached ? ' limit' : ''}`} key={key}>
             <div className="m-top">
               <span className="m-label">
-                {windowLabel(w.minutes)}
+                {label}
                 {r.limitReached && <span className="m-limit">Limit reached</span>}
               </span>
               <span className="m-pct">
@@ -80,7 +84,7 @@ export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel({ ent
                 <small>%</small>
               </span>
             </div>
-            <div className="bar" role="progressbar" aria-label={windowLabel(w.minutes)} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(r.usedPercent)}>
+            <div className="bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(r.usedPercent)}>
               <div
                 className="fill"
                 style={{ width: `${r.usedPercent}%`, background: `linear-gradient(90deg, ${ca}, ${cb})`, ['--glow' as string]: `${ca}99` } as CSSProperties}

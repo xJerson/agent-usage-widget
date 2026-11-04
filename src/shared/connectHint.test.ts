@@ -10,12 +10,19 @@ describe('connectHintFor', () => {
   });
   it('is hidden once connected, when Claude is absent, or for other agents', () => {
     expect(connectHintFor({ agentId: 'claude', status: 'connected', consentVisible: false })).toBeNull();
-    expect(connectHintFor({ agentId: 'claude', status: 'no_claude_dir', consentVisible: false })).toBeNull();
+    expect(connectHintFor({ agentId: 'claude', status: 'no_agent_dir', consentVisible: false })).toBeNull();
     expect(connectHintFor({ agentId: 'codex', status: 'not_connected', consentVisible: false })).toBeNull();
   });
   it('appears after "Not now" (prompt dismissed, still not connected)', () => {
     const before = connectHintFor({ agentId: 'claude', status: 'not_connected', consentVisible: true });
     const after = connectHintFor({ agentId: 'claude', status: 'not_connected', consentVisible: false });
     expect([before, after]).toEqual([null, CONNECT_HINT]);
+  });
+  it('works for Antigravity with its own name and the same rules', () => {
+    const hint = 'Connect Antigravity from the tray menu';
+    expect(connectHintFor({ agentId: 'antigravity', status: 'not_connected', consentVisible: false })).toBe(hint);
+    expect(connectHintFor({ agentId: 'antigravity', status: 'not_connected', consentVisible: true })).toBeNull();
+    expect(connectHintFor({ agentId: 'antigravity', status: 'connected', consentVisible: false })).toBeNull();
+    expect(connectHintFor({ agentId: 'antigravity', status: 'no_agent_dir', consentVisible: false })).toBeNull();
   });
 });

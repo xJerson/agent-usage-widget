@@ -7,3 +7,5 @@ release/
 Thumbs.db
 .env
 .env.*
+.atl/
+.codegraph/
