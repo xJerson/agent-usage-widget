@@ -32,49 +32,38 @@ export function resolveWindow(w: UsageWindow, nowMs: number): ResolvedWindow {
 }
 
 /**
- * Selects the most critical window to display on the circular bubble widget.
- *  1. Any window that has hit its limit (limitReached or usedPercent >= 100) takes top priority.
- *  2. Any window in the critical/warning zone (>= 70%) takes priority, picking the highest usage.
- *  3. Otherwise, follows the shortest window duration (e.g. 5h session). If multiple shortest windows exist
- *     (e.g. Gemini 5h vs Claude 3P 5h in Antigravity), the one with higher usage is chosen.
+ * Selects the primary window to display on the circular bubble widget.
+ * Always follows the shortest window cadence:
+ * - 5-hour session window for agents/models that have hourly quotas (Claude, Gemini, 3P models)
+ * - Weekly window only for models that exclusively have weekly quotas (such as Argon 4)
+ * If multiple shortest windows share the same duration (e.g. Gemini 5h vs Claude 3P 5h in Antigravity),
+ * the one with higher live usage is chosen so the widget reflects active consumption in real time.
  */
 export function headWindow(windows: readonly UsageWindow[], nowMs: number = Date.now()): UsageWindow | null {
   if (windows.length === 0) return null;
 
-  const resolved = windows.map((w) => ({ w, r: resolveWindow(w, nowMs) }));
-
-  // 1. Any reached limit is top priority
-  const reached = resolved.find(({ r }) => r.limitReached || r.usedPercent >= 100);
-  if (reached) return reached.w;
-
-  // 2. Any window in critical/warning zone (>= 70%) takes priority, picking the highest
-  let critical: { w: UsageWindow; r: ResolvedWindow } | null = null;
-  for (const item of resolved) {
-    if (item.r.usedPercent >= 70) {
-      if (critical === null || item.r.usedPercent > critical.r.usedPercent) {
-        critical = item;
-      }
-    }
-  }
-  if (critical) return critical.w;
-
-  // 3. Find the shortest window duration
+  // 1. Find the shortest window duration (e.g. 300 min for 5h sessions; 10080 min for Argon 4)
   let minMinutes = Infinity;
-  for (const { w } of resolved) {
+  for (const w of windows) {
     if (w.minutes < minMinutes) minMinutes = w.minutes;
   }
 
-  // 4. Among shortest windows, pick the one with highest live usage
-  let bestShort: { w: UsageWindow; r: ResolvedWindow } | null = null;
-  for (const item of resolved) {
-    if (item.w.minutes === minMinutes) {
-      if (bestShort === null || item.r.usedPercent > bestShort.r.usedPercent) {
-        bestShort = item;
-      }
+  // 2. Among shortest windows, pick the one with highest live usage (or if one hit limit, prioritize it)
+  const shortest = windows
+    .filter((w) => w.minutes === minMinutes)
+    .map((w) => ({ w, r: resolveWindow(w, nowMs) }));
+
+  const limit = shortest.find(({ r }) => r.limitReached || r.usedPercent >= 100);
+  if (limit) return limit.w;
+
+  let best: { w: UsageWindow; r: ResolvedWindow } | null = null;
+  for (const item of shortest) {
+    if (best === null || item.r.usedPercent > best.r.usedPercent) {
+      best = item;
     }
   }
 
-  return bestShort?.w ?? null;
+  return best?.w ?? null;
 }
 
 export function formatRemaining(ms: number): string {
