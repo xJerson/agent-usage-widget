@@ -131,41 +131,41 @@ describe('placePanel (fixed-size panel next to the scaled column)', () => {
   const size = { width: 320, height: 300 };
   const base = { size, workArea: wa, gap: 16 };
 
-  it('goes to the LEFT of the column, bottom-aligned with its bubble', () => {
-    const p = placePanel({ ...base, columnLeft: 1800, columnRight: 1892, bubbleBottom: 900 });
-    expect(p).toEqual({ x: 1800 - 16 - 320, y: 600, side: 'left' });
+  it('goes to the LEFT of the column, vertically centered with its bubble', () => {
+    const p = placePanel({ ...base, columnLeft: 1800, columnRight: 1892, bubbleCenterY: 600 });
+    expect(p).toEqual({ x: 1800 - 16 - 320, y: 600 - 150, side: 'left' });
   });
 
   it('the gap is measured from the SCALED column edge, so the size never depends on the scale', () => {
     for (const [left, right] of [[1860, 1892], [1800, 1892], [1700, 1892]] as Array<[number, number]>) {
-      const p = placePanel({ ...base, columnLeft: left, columnRight: right, bubbleBottom: 900 });
+      const p = placePanel({ ...base, columnLeft: left, columnRight: right, bubbleCenterY: 600 });
       expect(p.x + size.width + 16).toBe(left);
-      expect(p.y + size.height).toBe(900);
+      expect(p.y + size.height / 2).toBe(600);
     }
   });
 
   it('flips to the right of the column when there is no room on the left', () => {
-    const p = placePanel({ ...base, columnLeft: 100, columnRight: 192, bubbleBottom: 500 });
+    const p = placePanel({ ...base, columnLeft: 100, columnRight: 192, bubbleCenterY: 500 });
     expect(p.side).toBe('right');
     expect(p.x).toBe(192 + 16);
   });
 
   it('stays on the left (clamped) when neither side has room', () => {
     const narrow = { x: 0, y: 0, width: 400, height: 1040 };
-    const p = placePanel({ ...base, workArea: narrow, columnLeft: 200, columnRight: 292, bubbleBottom: 500 });
+    const p = placePanel({ ...base, workArea: narrow, columnLeft: 200, columnRight: 292, bubbleCenterY: 500 });
     expect(p.side).toBe('left');
     expect(p.x).toBe(0);
   });
 
   it('is kept inside the work area vertically', () => {
-    expect(placePanel({ ...base, columnLeft: 1800, columnRight: 1892, bubbleBottom: 120 }).y).toBe(0); // too high
-    expect(placePanel({ ...base, columnLeft: 1800, columnRight: 1892, bubbleBottom: 5000 }).y).toBe(1040 - 300);
+    expect(placePanel({ ...base, columnLeft: 1800, columnRight: 1892, bubbleCenterY: 50 }).y).toBe(0); // too high
+    expect(placePanel({ ...base, columnLeft: 1800, columnRight: 1892, bubbleCenterY: 5000 }).y).toBe(1040 - 300);
   });
 
   it('works on a secondary monitor with a negative origin', () => {
     const left = { x: -1920, y: 0, width: 1920, height: 1080 };
-    const p = placePanel({ ...base, workArea: left, columnLeft: -100, columnRight: -8, bubbleBottom: 700 });
-    expect(p).toEqual({ x: -100 - 16 - 320, y: 400, side: 'left' });
+    const p = placePanel({ ...base, workArea: left, columnLeft: -100, columnRight: -8, bubbleCenterY: 500 });
+    expect(p).toEqual({ x: -100 - 16 - 320, y: 500 - 150, side: 'left' });
   });
 });
 
@@ -190,10 +190,11 @@ describe('floating window padding (room for the soft shadow)', () => {
     for (const pad of [32, 64, 96]) {
       const windowSize = { width: 320 + pad * 2, height: 300 + pad * 2 };
       const content = floatContentSize(windowSize, pad);
-      const pos = placePanel({ columnLeft: 1788, columnRight: 1892, bubbleBottom: 900, size: content, workArea: wa, gap: 16 });
+      const pos = placePanel({ columnLeft: 1788, columnRight: 1892, bubbleCenterY: 600, size: content, workArea: wa, gap: 16 });
       const win = floatWindowBounds(pos, windowSize, pad);
       expect(win.x + win.width - pad + 16).toBe(1788); // card right edge + gap = column left
-      expect(win.y + win.height - pad).toBe(900); // card bottom = bubble bottom
+      expect(win.y + pad).toBe(pos.y);
+      expect(pos.y + content.height / 2).toBe(600); // vertically centered
     }
   });
 

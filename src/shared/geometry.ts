@@ -89,8 +89,10 @@ export interface PanelPlacementInput {
   /** Horizontal extent of the SCALED column on screen. */
   columnLeft: number;
   columnRight: number;
-  /** Screen Y of the bottom edge of the bubble the panel belongs to. */
-  bubbleBottom: number;
+  /** Screen Y of the center of the bubble the panel belongs to. */
+  bubbleCenterY?: number;
+  /** Screen Y of the bottom edge of the bubble the panel belongs to (fallback if bubbleCenterY is omitted). */
+  bubbleBottom?: number;
   /** Fixed content size of the panel (never scaled). */
   size: Size;
   workArea: Rect;
@@ -98,7 +100,7 @@ export interface PanelPlacementInput {
 }
 
 /**
- * Top-left of the (fixed-size) panel content on screen. It sits to the LEFT of the column, bottom-aligned with its
+ * Top-left of the (fixed-size) panel content on screen. It sits to the LEFT of the column, vertically centered with its
  * bubble, with the gap measured from the scaled column edge. If the left side has no room it flips to the right,
  * and it is always kept inside the work area.
  */
@@ -110,7 +112,14 @@ export function placePanel(i: PanelPlacementInput): Point & { side: 'left' | 'ri
   const fitsRight = rightX + i.size.width <= wa.x + wa.width;
   const side = !fitsLeft && fitsRight ? 'right' : 'left';
   const x = clampTo(side === 'left' ? leftX : rightX, wa.x, Math.max(wa.x, wa.x + wa.width - i.size.width));
-  const y = clampTo(i.bubbleBottom - i.size.height, wa.y, Math.max(wa.y, wa.y + wa.height - i.size.height));
+  const targetCenterY =
+    typeof i.bubbleCenterY === 'number'
+      ? i.bubbleCenterY
+      : typeof i.bubbleBottom === 'number'
+        ? i.bubbleBottom - i.size.height / 2
+        : wa.y + wa.height / 2;
+  const rawY = Math.round(targetCenterY - i.size.height / 2);
+  const y = clampTo(rawY, wa.y, Math.max(wa.y, wa.y + wa.height - i.size.height));
   return { x, y, side };
 }
 

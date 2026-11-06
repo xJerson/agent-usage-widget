@@ -190,8 +190,8 @@ export class FloatWindows {
     let pos = { x: 0, y: 0 };
     if (s.role === 'panel') {
       const b = this.layout.bubble;
-      const bubbleBottom = b ? mb.y + b.y + b.height : stage.y + stage.height;
-      pos = placePanel({ columnLeft: stage.x, columnRight: stage.x + stage.width, bubbleBottom, size: content, workArea: wa, gap: PANEL_GAP });
+      const bubbleCenterY = b ? mb.y + b.y + b.height / 2 : stage.y + stage.height / 2;
+      pos = placePanel({ columnLeft: stage.x, columnRight: stage.x + stage.width, bubbleCenterY, size: content, workArea: wa, gap: PANEL_GAP });
     } else if (s.role === 'bar') {
       pos = placeAbove({ stageRight: stage.x + stage.width, stageTop: stage.y, size: content, gap: BAR_GAP, workArea: wa });
     } else {
