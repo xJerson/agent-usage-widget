@@ -40,7 +40,7 @@ export function Bubble({ entry, now, open, editing, onToggle, onEdit, onContextM
   const { agent, snapshot } = entry;
   const connectName = CONNECTABLE_AGENTS[agent.id]?.name ?? agent.name;
   const connectCaption = CONNECTABLE_AGENTS[agent.id]?.caption ?? agent.name;
-  const head = snapshot ? headWindow(snapshot.windows) : null;
+  const head = snapshot ? headWindow(snapshot.windows, now) : null;
   const headState = head ? resolveWindow(head, now) : null;
   const pct = headState?.usedPercent ?? 0;
   const [a, b] = statusGradient(agent, levelOf(pct));

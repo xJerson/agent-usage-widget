@@ -189,7 +189,11 @@ body.dragging, body.dragging .bubble { cursor: grabbing; }
   background-size: 260% 100%; background-position: 160% 0; animation: shine 7s ease-in-out 1.2s infinite;
 }
 @keyframes shine { 0% { background-position: 160% 0; } 22%, 100% { background-position: -60% 0; } }
-.head-dot { filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 8px var(--glow, #fff)); animation: twinkle 2.4s ease-in-out infinite; }
+.head-dot {
+  filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 8px var(--glow, #fff));
+  animation: twinkle 2.4s ease-in-out infinite;
+  transition: cx 0.5s cubic-bezier(0.3, 0.8, 0.3, 1), cy 0.5s cubic-bezier(0.3, 0.8, 0.3, 1);
+}
 @keyframes twinkle { 50% { opacity: 0.55; } }
 .logo svg.mk { filter: drop-shadow(0 0 5px var(--glow, transparent)); animation: halo 4.5s ease-in-out infinite; }
 @keyframes halo { 50% { filter: drop-shadow(0 0 11px var(--glow, transparent)) brightness(1.15); } }

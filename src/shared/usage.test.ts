@@ -71,11 +71,39 @@ describe('resolveWindow limitReached (UI state at >= 100%)', () => {
 });
 
 describe('headWindow', () => {
-  it('follows the shortest window regardless of order', () => {
+  it('follows the shortest window regardless of order when active', () => {
     const weekly = { minutes: 10080, usedPercent: 10, resetsAt: null };
     const session = { minutes: 300, usedPercent: 50, resetsAt: null };
     expect(headWindow([weekly, session])).toBe(session);
   });
+
+  it('prioritizes a window that has reached its limit', () => {
+    const weekly = { minutes: 10080, usedPercent: 100, resetsAt: null, limitReached: true };
+    const session = { minutes: 300, usedPercent: 20, resetsAt: null };
+    expect(headWindow([weekly, session])).toBe(weekly);
+  });
+
+  it('prioritizes a critical window (>= 70%) over an uncritical short window', () => {
+    const weekly = { minutes: 10080, usedPercent: 95, resetsAt: null };
+    const session = { minutes: 300, usedPercent: 15, resetsAt: null };
+    expect(headWindow([weekly, session])).toBe(weekly);
+  });
+
+  it('picks the window with higher usage when shortest windows share duration', () => {
+    const gemini5h = { id: 'gemini-5h', minutes: 300, usedPercent: 10, resetsAt: null };
+    const thirdParty5h = { id: '3p-5h', minutes: 300, usedPercent: 60, resetsAt: null };
+    expect(headWindow([gemini5h, thirdParty5h])).toBe(thirdParty5h);
+  });
+
+  it('keeps session at 0% when weekly is not critical, but prioritizes weekly if >= 70%', () => {
+    const session = { minutes: 300, usedPercent: 0, resetsAt: null };
+    const weeklyNormal = { minutes: 10080, usedPercent: 45, resetsAt: null };
+    expect(headWindow([session, weeklyNormal])).toBe(session);
+
+    const weeklyCritical = { minutes: 10080, usedPercent: 85, resetsAt: null };
+    expect(headWindow([session, weeklyCritical])).toBe(weeklyCritical);
+  });
+
   it('returns null for no windows', () => {
     expect(headWindow([])).toBeNull();
   });

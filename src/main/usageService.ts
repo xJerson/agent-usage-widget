@@ -38,8 +38,8 @@ export class UsageService {
     private readonly providers: readonly UsageProvider[],
     options: UsageServiceOptions = {},
   ) {
-    this.scanIntervalMs = options.scanIntervalMs ?? 5000;
-    this.debounceMs = options.debounceMs ?? 250;
+    this.scanIntervalMs = options.scanIntervalMs ?? 2500;
+    this.debounceMs = options.debounceMs ?? 60;
     this.onError = options.onError ?? (() => undefined);
   }
 

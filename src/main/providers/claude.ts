@@ -70,8 +70,15 @@ export class ClaudeProvider implements UsageProvider {
         const [raw, info] = await Promise.all([readFile(this.dataFile, 'utf8'), stat(this.dataFile)]);
         const snapshot = parseClaudeStatusline(raw, Math.round(info.mtimeMs));
         if (snapshot) return { ...snapshot, windows: ensureClaudeWindows(snapshot.windows) };
-      } catch {
-        return null; // missing file or unreadable: nothing to show yet
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+          return null;
+        }
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, this.retryDelayMs));
+          continue;
+        }
+        return null;
       }
       if (attempt === 0) await new Promise((r) => setTimeout(r, this.retryDelayMs));
     }

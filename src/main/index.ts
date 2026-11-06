@@ -69,7 +69,8 @@ async function main(): Promise<void> {
   let floats: FloatWindows | null = null;
   const controller = new WidgetController(win, join(app.getPath('userData'), 'layout.json'), () => floats?.reposition());
   const service = new UsageService(DEMO ? createDemoProviders() : createProviders(HOME_OVERRIDE), {
-    scanIntervalMs: DEMO ? 2000 : 5000,
+    scanIntervalMs: DEMO ? 2000 : 2500,
+    debounceMs: 50,
     onError: (message, error) => log(message, error),
   });
 
