@@ -18,11 +18,13 @@ interface Props {
   onToggle(): void;
   onEdit(): void;
   onContextMenu?(): void;
+  /** Overrides which logo is drawn (e.g. the active Antigravity model) without changing the agent id. */
+  logoId?: string;
   /** One-time connector consent: dimmed logo, confirm / cancel buttons and a caption on top of the bubble. */
   consent?: { onAnswer(accept: boolean): void; onInfo(): void } | null;
 }
 
-export function Bubble({ entry, now, open, editing, onToggle, onEdit, onContextMenu, consent = null }: Props) {
+export function Bubble({ entry, now, open, editing, onToggle, onEdit, onContextMenu, logoId, consent = null }: Props) {
   // Keep the overlay mounted briefly after the answer so it can animate away.
   const [overlay, setOverlay] = useState(false);
   useEffect(() => {
@@ -147,7 +149,7 @@ export function Bubble({ entry, now, open, editing, onToggle, onEdit, onContextM
           style={{ display: pct > 1 ? '' : 'none', ['--glow' as string]: a }}
         />
       </svg>
-      <span className="logo">{renderLogo(agent, 46)}</span>
+      <span className="logo">{renderLogo(logoId ? { ...agent, id: logoId } : agent, 46)}</span>
       <span className="name-tag" style={{ background: agent.brand }}>
         {agent.name}
       </span>

@@ -401,6 +401,7 @@ export function App() {
                           name: `Antigravity · ${primaryName}`,
                         },
                       }}
+                      logoId={`antigravity:${primaryModel}`}
                       now={now}
                       open={openId === 'antigravity' || (openId?.startsWith('antigravity') ?? false)}
                       editing={editing}

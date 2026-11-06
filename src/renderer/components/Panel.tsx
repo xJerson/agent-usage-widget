@@ -43,6 +43,7 @@ export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel(
   const displayAgent = activeModelSummary
     ? {
         ...agent,
+        id: `antigravity:${activeModelSummary.key}`,
         name: `Antigravity · ${activeModelSummary.name}`,
         brand: activeModelSummary.brand,
         brandLight: activeModelSummary.brandLight,
