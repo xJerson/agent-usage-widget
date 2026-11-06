@@ -151,7 +151,10 @@ export function Bubble({ entry, now, open, editing, onToggle, onEdit, onContextM
       <span className="name-tag" style={{ background: agent.brand }}>
         {agent.name}
       </span>
-      <span className="pct-chip">{Math.round(pct)}%</span>
+      <span className="pct-chip">
+        <span className="beacon" aria-hidden="true" />
+        {Math.round(pct)}%
+      </span>
     </button>
     {overlay && ov && (
       <div className={`consent${consent ? '' : ' out'}`}>

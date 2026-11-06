@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Usage Widget 2.0 — Prototipo con Todas las Barras Semanales</title>
+  <style>
+    /* ==========================================================================
+       DESIGN TOKENS & THEMING (Obsidian Glass 2.0)
+       ========================================================================== */
+    :root {
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", system-ui, Roboto, sans-serif;
+      --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+
+      /* Palette: Obsidian Ultra Dark */
+      --bg-base: #090a0d;
+      --surface-glass: rgba(18, 20, 26, 0.78);
+      --surface-glass-active: rgba(26, 29, 38, 0.9);
+      --surface-card: rgba(255, 255, 255, 0.04);
+      --surface-card-hover: rgba(255, 255, 255, 0.07);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-highlight: rgba(255, 255, 255, 0.18);
+
+      /* Typography */
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      /* Brand Accents */
+      --claude-accent: #f28d6d;
+      --claude-deep: #b85636;
+      --claude-glow: rgba(242, 141, 109, 0.45);
+
+      --codex-accent: #7c86ff;
+      --codex-deep: #5d68ea;
+      --codex-glow: rgba(124, 134, 255, 0.45);
+
+      --gemini-accent: #38bdf8;
+      --gemini-deep: #0284c7;
+      --gemini-glow: rgba(56, 189, 248, 0.45);
+
+      --argon-accent: #fbbf24;
+      --argon-deep: #d97706;
+      --argon-glow: rgba(251, 191, 36, 0.45);
+
+      --thirdparty-accent: #ec4899;
+      --thirdparty-deep: #be185d;
+      --thirdparty-glow: rgba(236, 72, 153, 0.45);
+
+      --status-ok: #10b981;
+      --status-warn: #f59e0b;
+      --status-danger: #ef4444;
+
+      /* Shadows & Filters */
+      --shadow-bubble: 0 16px 36px -4px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+      --shadow-panel: 0 24px 60px -8px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      --shadow-chip: 0 4px 14px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    /* THEME: Cyberpunk Neon */
+    body.theme-cyber {
+      --bg-base: #050508;
+      --surface-glass: rgba(14, 12, 24, 0.82);
+      --border-subtle: rgba(168, 85, 247, 0.25);
+      --border-highlight: rgba(236, 72, 153, 0.4);
+      --claude-accent: #ff007f;
+      --codex-accent: #a855f7;
+      --gemini-accent: #00f0ff;
+      --argon-accent: #ffe600;
+      --shadow-bubble: 0 0 25px rgba(168, 85, 247, 0.35), 0 0 0 1px rgba(236, 72, 153, 0.3);
+    }
+
+    /* THEME: Apple Vision Frost */
+    body.theme-frost {
+      --bg-base: #1c1d22;
+      --surface-glass: rgba(255, 255, 255, 0.09);
+      --surface-card: rgba(255, 255, 255, 0.06);
+      --border-subtle: rgba(255, 255, 255, 0.15);
+      --border-highlight: rgba(255, 255, 255, 0.35);
+      --shadow-panel: 0 30px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      color: var(--text-main);
+      background-color: var(--bg-base);
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+      transition: background-color 0.4s ease;
+    }
+
+    /* VIEWPORT BACKGROUND */
+    .viewport {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      background-size: cover;
+      background-position: center;
+      transition: background-image 0.5s ease;
+      background-image: radial-gradient(circle at 85% 85%, #1e1b4b 0%, #0f172a 40%, #030712 100%);
+    }
+
+    .viewport.wall-abstract {
+      background-image: linear-gradient(135deg, #090a0f 0%, #151128 50%, #060b18 100%);
+    }
+
+    .viewport.wall-sequoia {
+      background-image: radial-gradient(circle at 70% 30%, #312e81 0%, #0f172a 50%, #020617 100%);
+    }
+
+    .viewport.wall-oled {
+      background: #000000;
+    }
+
+    .viewport::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+      background-size: 32px 32px;
+      pointer-events: none;
+    }
+
+    /* ==========================================================================
+       SIDEBAR CONTROL / TESTING LAB
+       ========================================================================== */
+    .lab-panel {
+      position: absolute;
+      left: 28px;
+      top: 24px;
+      bottom: 24px;
+      width: 410px;
+      background: var(--surface-glass);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid var(--border-subtle);
+      border-radius: 24px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: var(--shadow-panel);
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .lab-panel::-webkit-scrollbar { width: 5px; }
+    .lab-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+
+    .lab-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 12px;
+    }
+
+    .lab-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .lab-tag {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #7c86ff, #38bdf8);
+      color: #030712;
+      letter-spacing: 0.05em;
+    }
+
+    .lab-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .lab-section-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+    }
+
+    .agent-switcher-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .agent-btn {
+      padding: 8px 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      background: var(--surface-card);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      transition: all 0.2s;
+    }
+
+    .agent-btn:hover {
+      background: var(--surface-card-hover);
+      color: var(--text-main);
+    }
+
+    .agent-btn.active {
+      border-color: var(--border-highlight);
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .control-group {
+      background: var(--surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 9px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .control-label b {
+      color: var(--text-main);
+      font-family: var(--font-mono);
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+      transition: transform 0.15s;
+    }
+
+    .slider::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .btn-chip {
+      background: var(--surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 8px 10px;
+      color: var(--text-main);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-chip:hover {
+      background: var(--surface-card-hover);
+      border-color: var(--border-highlight);
+      transform: translateY(-1px);
+    }
+
+    .btn-chip.active {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--gemini-accent);
+      color: var(--gemini-accent);
+    }
+
+    .lab-tip {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.5;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px dashed var(--border-subtle);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .lab-tip strong { color: var(--text-muted); }
+
+    /* ==========================================================================
+       DESKTOP WIDGET STAGE (Bottom Right)
+       ========================================================================== */
+    .desktop-stage {
+      position: absolute;
+      right: 48px;
+      bottom: 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 32px;
+      z-index: 50;
+    }
+
+    /* Antigravity row cluster (expanded on right click) */
+    .antigravity-dock {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: relative;
+    }
+
+    /* Sub-bubble item */
+    .sub-bubble-wrap {
+      display: flex;
+      align-items: center;
+      transition: all 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.25);
+    }
+
+    .sub-bubble-wrap.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.6) translateX(36px);
+      width: 0;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .sub-bubble-wrap.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: none;
+      width: 104px;
+    }
+
+    /* ==========================================================================
+       THE CIRCULAR BUBBLE
+       ========================================================================== */
+    .bubble-unit {
+      position: relative;
+      width: 104px;
+      height: 104px;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .bubble-unit:active { cursor: grabbing; }
+
+    .bubble-body {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 28%, #1f232d 0%, #0d0f14 75%);
+      box-shadow: var(--shadow-bubble);
+      display: grid;
+      place-items: center;
+      transition: transform 0.25s cubic-bezier(0.3, 1.4, 0.4, 1), box-shadow 0.3s ease;
+      animation: bubble-breathe 6s ease-in-out infinite;
+    }
+
+    .bubble-unit:hover .bubble-body {
+      transform: scale(1.06);
+      box-shadow: 0 20px 42px -4px rgba(0, 0, 0, 0.85), 0 0 25px var(--current-glow, rgba(255, 255, 255, 0.15));
+    }
+
+    .bubble-unit:active .bubble-body {
+      transform: scale(0.96);
+    }
+
+    .bubble-body::before {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      border-radius: 50%;
+      pointer-events: none;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.03) 40%, transparent 60%);
+    }
+
+    .bubble-body::after {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border-radius: 50%;
+      pointer-events: none;
+      background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, 0.22) 50%, transparent 65%);
+      background-size: 250% 100%;
+      background-position: 180% 0;
+      animation: light-sweep 8s ease-in-out infinite;
+    }
+
+    @keyframes light-sweep {
+      0%, 75% { background-position: 180% 0; }
+      100% { background-position: -80% 0; }
+    }
+
+    @keyframes bubble-breathe {
+      0%, 100% { box-shadow: var(--shadow-bubble); }
+      50% { box-shadow: 0 18px 40px -4px rgba(0, 0, 0, 0.8), 0 0 16px var(--current-glow, transparent); }
+    }
+
+    .ambient-halo {
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--current-glow, transparent) 0%, transparent 70%);
+      opacity: 0.6;
+      filter: blur(10px);
+      pointer-events: none;
+      transition: opacity 0.4s ease, background 0.4s ease;
+      z-index: -1;
+    }
+
+    .bubble-unit:hover .ambient-halo {
+      opacity: 0.9;
+      filter: blur(14px);
+    }
+
+    /* SVG PROGRESS RING */
+    .ring-svg {
+      position: absolute;
+      inset: 0;
+      transform: rotate(-90deg);
+      overflow: visible;
+      pointer-events: none;
+    }
+
+    .ring-track {
+      stroke: rgba(255, 255, 255, 0.08);
+      stroke-width: 6;
+      fill: none;
+    }
+
+    .ring-fill {
+      fill: none;
+      stroke-width: 6;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.6s cubic-bezier(0.3, 0.8, 0.3, 1), stroke 0.4s ease;
+      filter: drop-shadow(0 0 6px var(--current-accent, #fff));
+    }
+
+    .ring-head-dot {
+      fill: #ffffff;
+      transition: cx 0.6s cubic-bezier(0.3, 0.8, 0.3, 1), cy 0.6s cubic-bezier(0.3, 0.8, 0.3, 1);
+      filter: drop-shadow(0 0 4px #ffffff) drop-shadow(0 0 10px var(--current-accent, #fff));
+      animation: head-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes head-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.65; }
+    }
+
+    .bubble-logo {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+    }
+
+    .bubble-logo svg {
+      width: 40px;
+      height: 40px;
+      transition: transform 0.5s cubic-bezier(0.3, 1.4, 0.4, 1), filter 0.3s;
+      filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.45));
+    }
+
+    .bubble-unit:hover .bubble-logo svg {
+      transform: scale(1.1) rotate(12deg);
+      filter: drop-shadow(0 4px 16px var(--current-glow, rgba(255,255,255,0.3)));
+    }
+
+    .top-pill {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 99px;
+      color: #fff;
+      background: rgba(18, 20, 26, 0.9);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .bottom-chip {
+      position: absolute;
+      bottom: -11px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      font-weight: 750;
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      padding: 3px 10px 3px 8px;
+      border-radius: 99px;
+      color: #fff;
+      background: rgba(22, 25, 34, 0.94);
+      border: 1px solid var(--border-highlight);
+      box-shadow: var(--shadow-chip);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .bottom-chip .beacon {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--status-ok);
+      box-shadow: 0 0 8px var(--status-ok);
+      animation: beacon-blink 2.2s ease-in-out infinite;
+    }
+
+    @keyframes beacon-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ==========================================================================
+       THE REDESIGNED DETAILS PANEL (Linear / Raycast Style)
+       ========================================================================== */
+    .details-panel {
+      position: absolute;
+      width: 380px;
+      background: var(--surface-glass);
+      backdrop-filter: blur(36px) saturate(190%);
+      -webkit-backdrop-filter: blur(36px) saturate(190%);
+      border: 1px solid var(--border-highlight);
+      border-radius: 26px;
+      padding: 20px;
+      box-shadow: var(--shadow-panel);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      z-index: 60;
+      opacity: 0;
+      transform: scale(0.92) translateX(16px);
+      pointer-events: none;
+      transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.25);
+    }
+
+    .details-panel.open {
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+    }
+
+    .details-panel::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 32px;
+      right: 32px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-agent {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .panel-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    }
+
+    .panel-avatar svg { width: 22px; height: 22px; }
+
+    .panel-agent-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .panel-agent-name {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .panel-plan-tag {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+
+    .panel-badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 99px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #34d399;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .panel-badge::before {
+      content: "";
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #34d399;
+    }
+
+    /* HERO QUOTA CARD */
+    .hero-card {
+      position: relative;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+      border: 1px solid var(--border-highlight);
+      border-radius: 18px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      top: -30px;
+      right: -30px;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: var(--hero-glow, rgba(56, 189, 248, 0.2));
+      filter: blur(28px);
+      pointer-events: none;
+    }
+
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .hero-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .hero-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .hero-models {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .hero-pct-wrap {
+      text-align: right;
+    }
+
+    .hero-pct {
+      font-size: 32px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      letter-spacing: -0.03em;
+      line-height: 1;
+      color: #fff;
+    }
+
+    .hero-pct small {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-left: 2px;
+    }
+
+    .progress-bar-wrap {
+      position: relative;
+      height: 12px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 99px;
+      overflow: hidden;
+      padding: 2px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--bar-gradient-start, #0284c7), var(--bar-gradient-end, #38bdf8));
+      width: 42%;
+      transition: width 0.6s cubic-bezier(0.3, 0.8, 0.3, 1), background 0.4s;
+      box-shadow: 0 0 14px var(--bar-gradient-end, #38bdf8);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+      animation: bar-shine 2.8s ease-in-out infinite;
+    }
+
+    @keyframes bar-shine {
+      0% { transform: translateX(-100%); }
+      60%, 100% { transform: translateX(200%); }
+    }
+
+    .hero-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .countdown-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 3px 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .countdown-pill svg { width: 12px; height: 12px; color: var(--text-dim); }
+
+    /* SECONDARY METRIC ROWS */
+    .metric-list {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      max-height: 380px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .metric-list::-webkit-scrollbar { width: 4px; }
+    .metric-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; }
+
+    .metric-group-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      padding-left: 4px;
+      margin-top: 4px;
+    }
+
+    .metric-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 10px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .metric-card:hover {
+      background: var(--surface-card-hover);
+      border-color: var(--border-highlight);
+    }
+
+    .metric-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .metric-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .metric-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .metric-pct {
+      font-size: 17px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: #fff;
+    }
+
+    .metric-pct small { font-size: 11px; color: var(--text-dim); }
+
+    .mini-bar {
+      height: 7px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .mini-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.5s ease;
+    }
+
+    .metric-bot {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10.5px;
+      color: var(--text-dim);
+    }
+
+    .metric-bot b { color: var(--text-muted); font-family: var(--font-mono); }
+
+    .panel-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .panel-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: all 0.15s;
+    }
+
+    .panel-close-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+    }
+
+    /* NOTICE CALLOUT */
+    .design-callout {
+      position: absolute;
+      top: 24px;
+      right: 48px;
+      width: 440px;
+      background: var(--surface-glass);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: var(--shadow-panel);
+      z-index: 80;
+    }
+
+    .callout-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--gemini-accent);
+    }
+
+    .callout-body {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    .callout-body ul {
+      margin-left: 18px;
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="viewport" id="viewport">
+
+    <!-- ====================================================================
+         LAB CONTROLLER & DESIGN INSPECTOR
+         ==================================================================== -->
+    <div class="lab-panel">
+      <div class="lab-header">
+        <div class="lab-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+          Design Lab 2.0
+        </div>
+        <span class="lab-tag">5 Barras Antigravity</span>
+      </div>
+
+      <!-- Agent Panel Switcher -->
+      <div class="lab-section">
+        <div class="lab-section-title">🔍 Inspeccionar Panel por Agente</div>
+        <div class="agent-switcher-grid">
+          <button class="agent-btn" id="btn-show-claude">
+            <span style="color: var(--claude-accent);">●</span> Claude
+          </button>
+          <button class="agent-btn" id="btn-show-codex">
+            <span style="color: var(--codex-accent);">●</span> Codex
+          </button>
+          <button class="agent-btn active" id="btn-show-antigravity">
+            <span style="color: var(--gemini-accent);">●</span> Antigravity
+          </button>
+          <button class="agent-btn" id="btn-load-real">
+            <span style="color: var(--status-ok);">★</span> Mis Datos
+          </button>
+        </div>
+      </div>
+
+      <!-- Real-time Quota Simulator -->
+      <div class="lab-section">
+        <div class="lab-section-title">⚡ Simulador de Barras (5h y Semanales)</div>
+
+        <!-- GEMINI GROUP -->
+        <div class="control-group" style="border-left: 3px solid var(--gemini-accent);">
+          <div class="control-label">
+            <span>Gemini 3.8 Flash & Pro · 5 Horas</span>
+            <b id="val-gemini-5h">64%</b>
+          </div>
+          <input type="range" class="slider" id="slide-gemini-5h" min="0" max="100" value="64">
+        </div>
+
+        <div class="control-group" style="border-left: 3px solid var(--gemini-accent);">
+          <div class="control-label">
+            <span>Gemini 3.8 Flash & Pro · Semanal (7d)</span>
+            <b id="val-gemini-weekly">2%</b>
+          </div>
+          <input type="range" class="slider" id="slide-gemini-weekly" min="0" max="100" value="2">
+        </div>
+
+        <!-- 3P CLAUDE GROUP -->
+        <div class="control-group" style="border-left: 3px solid var(--thirdparty-accent);">
+          <div class="control-label">
+            <span>Claude & OSS 3P · 5 Horas</span>
+            <b id="val-3p-5h">0%</b>
+          </div>
+          <input type="range" class="slider" id="slide-3p-5h" min="0" max="100" value="0">
+        </div>
+
+        <div class="control-group" style="border-left: 3px solid var(--thirdparty-accent);">
+          <div class="control-label">
+            <span>Claude & OSS 3P · Semanal (7d)</span>
+            <b id="val-3p-weekly">99%</b>
+          </div>
+          <input type="range" class="slider" id="slide-3p-weekly" min="0" max="100" value="99">
+        </div>
+
+        <!-- ARGON 4 -->
+        <div class="control-group" style="border-left: 3px solid var(--argon-accent);">
+          <div class="control-label">
+            <span>Argon 4 · WTU Semanal</span>
+            <b id="val-argon">0%</b>
+          </div>
+          <input type="range" class="slider" id="slide-argon" min="0" max="100" value="0">
+        </div>
+
+        <!-- CODEX & CLAUDE CODE -->
+        <div class="control-group" style="border-left: 3px solid var(--codex-accent);">
+          <div class="control-label">
+            <span>Codex (Sesión 5h)</span>
+            <b id="val-codex-5h">45%</b>
+          </div>
+          <input type="range" class="slider" id="slide-codex-5h" min="0" max="100" value="45">
+        </div>
+
+        <div class="control-group" style="border-left: 3px solid var(--claude-accent);">
+          <div class="control-label">
+            <span>Claude Code (Sesión 5h)</span>
+            <b id="val-claude-5h">18%</b>
+          </div>
+          <input type="range" class="slider" id="slide-claude-5h" min="0" max="100" value="18">
+        </div>
+      </div>
+
+      <!-- Interaction controls -->
+      <div class="lab-section">
+        <div class="lab-section-title">🖱️ Interacciones Rápidas</div>
+        <div class="btn-row">
+          <button class="btn-chip" id="btn-toggle-sub">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            Sub-Widgets Agy
+          </button>
+          <button class="btn-chip active" id="btn-toggle-panel">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+            Abrir / Cerrar Panel
+          </button>
+        </div>
+      </div>
+
+      <!-- Theme Switcher -->
+      <div class="lab-section">
+        <div class="lab-section-title">🎨 Temas Visuales</div>
+        <div class="btn-row">
+          <button class="btn-chip active" id="theme-obsidian">Obsidian Glass</button>
+          <button class="btn-chip" id="theme-cyber">Cyber Neon</button>
+          <button class="btn-chip" id="theme-frost">Vision Frost</button>
+          <button class="btn-chip" id="theme-oled">OLED Stealth</button>
+        </div>
+      </div>
+
+      <div class="lab-tip">
+        <strong>💡 ¿Por qué Antigravity tiene 5 barras?</strong><br>
+        1. <strong>Gemini 5h</strong> + 2. <strong>Gemini Semanal</strong><br>
+        3. <strong>Claude 3P 5h</strong> + 4. <strong>Claude 3P Semanal (99%)</strong><br>
+        5. <strong>Argon 4 Semanal (WTU)</strong>.<br>
+        ¡Ahora el panel muestra todas las barras semanales organizadas por modelo!
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         DESIGN CALLOUT EXPLANATION
+         ==================================================================== -->
+    <div class="design-callout">
+      <div class="callout-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        Desglose Completo: 5 Barras en Antigravity
+      </div>
+      <div class="callout-body">
+        Cada grupo de modelos en Antigravity tiene su propia barra semanal:
+        <ul>
+          <li><strong>Gemini 3.8:</strong> 2 barras (5h sesión + 7d semanal).</li>
+          <li><strong>Claude & OSS 3P:</strong> 2 barras (5h sesión + 7d semanal a 99%).</li>
+          <li><strong>Argon 4:</strong> 1 barra (WTU semanal exclusivo).</li>
+          <li><strong>Total:</strong> 5 barras independientes exactamente como las expone la CLI de Antigravity.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         FLOATING DETAILS PANEL (Centered Vertically with Bubble)
+         ==================================================================== -->
+    <div class="details-panel open" id="details-panel" style="right: 180px; bottom: 80px;">
+      <!-- Panel Header -->
+      <div class="panel-header">
+        <div class="panel-agent">
+          <div class="panel-avatar" id="panel-avatar">
+            <!-- Dynamic Avatar SVG inserted by JS -->
+          </div>
+          <div class="panel-agent-info">
+            <div class="panel-agent-name" id="panel-title">Antigravity</div>
+            <div class="panel-plan-tag" id="panel-plan">Google AI Pro · 5 Barras de Cuota</div>
+          </div>
+        </div>
+        <div class="panel-badge" id="panel-badge">ACTIVO</div>
+      </div>
+
+      <!-- HERO STAT CARD (Primary 5h Session Quota) -->
+      <div class="hero-card" id="hero-card">
+        <div class="hero-top">
+          <div class="hero-title-group">
+            <span class="hero-label">Cuota de Sesión Actual</span>
+            <span class="hero-models" id="hero-model-name">Gemini 3.8 Flash & Pro (5h)</span>
+          </div>
+          <div class="hero-pct-wrap">
+            <div class="hero-pct" id="hero-pct-display">64<small>%</small></div>
+          </div>
+        </div>
+
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="hero-bar-fill" style="width: 64%;"></div>
+        </div>
+
+        <div class="hero-footer">
+          <div class="countdown-pill" id="hero-countdown">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span id="hero-reset-text">Resetea en 3h 42m</span>
+          </div>
+          <span id="hero-avail-text">Disponible: <b>36%</b></span>
+        </div>
+      </div>
+
+      <!-- METRIC LIST (All other Quotas & Weekly bars) -->
+      <div class="metric-list" id="metric-list">
+        <!-- Rendered dynamically depending on active agent -->
+      </div>
+
+      <!-- Panel Footer -->
+      <div class="panel-footer">
+        <span>Actualizado en tiempo real</span>
+        <button class="panel-close-btn" id="btn-close-panel">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Cerrar
+        </button>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         DESKTOP WIDGETS COLUMN (Bottom-Right Anchor)
+         ==================================================================== -->
+    <div class="desktop-stage">
+
+      <!-- 1. CLAUDE CODE BUBBLE -->
+      <div class="bubble-unit" id="bubble-claude" style="--current-accent: var(--claude-accent); --current-glow: var(--claude-glow);">
+        <div class="ambient-halo"></div>
+        <div class="top-pill">Claude</div>
+        
+        <div class="bubble-body">
+          <svg class="ring-svg" viewBox="0 0 104 104">
+            <circle class="ring-track" cx="52" cy="52" r="46"/>
+            <circle class="ring-fill" id="ring-claude" cx="52" cy="52" r="46"
+                    stroke="url(#claude-grad)"
+                    stroke-dasharray="289"
+                    stroke-dashoffset="236"/>
+            <circle class="ring-head-dot" id="dot-claude" cx="95" cy="67" r="3.5"/>
+            <defs>
+              <linearGradient id="claude-grad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#f28d6d"/>
+                <stop offset="100%" stop-color="#b85636"/>
+              </linearGradient>
+            </defs>
+          </svg>
+
+          <!-- Anthropic Official Starburst Vector Logo -->
+          <div class="bubble-logo">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M13.5 3L10.5 3L10.8 8.8L6.4 4.8L4.3 6.9L8.3 11.3L2.5 11L2.5 14L8.3 13.7L4.3 18.1L6.4 20.2L10.8 16.2L10.5 22L13.5 22L13.2 16.2L17.6 20.2L19.7 18.1L15.7 13.7L21.5 14L21.5 11L15.7 11.3L19.7 6.9L17.6 4.8L13.2 8.8L13.5 3Z" fill="url(#claude-grad)"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="bottom-chip">
+          <span class="beacon"></span>
+          <span id="chip-claude">18%</span>
+        </div>
+      </div>
+
+      <!-- 2. OPENAI CODEX BUBBLE -->
+      <div class="bubble-unit" id="bubble-codex" style="--current-accent: var(--codex-accent); --current-glow: var(--codex-glow);">
+        <div class="ambient-halo"></div>
+        <div class="top-pill">Codex</div>
+        
+        <div class="bubble-body">
+          <svg class="ring-svg" viewBox="0 0 104 104">
+            <circle class="ring-track" cx="52" cy="52" r="46"/>
+            <circle class="ring-fill" id="ring-codex" cx="52" cy="52" r="46"
+                    stroke="url(#codex-grad)"
+                    stroke-dasharray="289"
+                    stroke-dashoffset="158"/>
+            <circle class="ring-head-dot" id="dot-codex" cx="97" cy="42" r="3.5"/>
+            <defs>
+              <linearGradient id="codex-grad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#b4baff"/>
+                <stop offset="50%" stop-color="#7c86ff"/>
+                <stop offset="100%" stop-color="#5d68ea"/>
+              </linearGradient>
+            </defs>
+          </svg>
+
+          <!-- OpenAI Official Rosette Vector Logo -->
+          <div class="bubble-logo">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path fill="url(#codex-grad)" d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="bottom-chip">
+          <span class="beacon"></span>
+          <span id="chip-codex">45%</span>
+        </div>
+      </div>
+
+      <!-- 3. ANTIGRAVITY CLUSTER (Main + Expandable Sub-widgets) -->
+      <div class="antigravity-dock">
+
+        <!-- SUB-BUBBLE: Claude 3P / OSS (Hidden until right-click) -->
+        <div class="sub-bubble-wrap hidden" id="sub-wrap-3p">
+          <div class="bubble-unit" id="bubble-3p" style="--current-accent: var(--thirdparty-accent); --current-glow: var(--thirdparty-glow);">
+            <div class="ambient-halo"></div>
+            <div class="top-pill">Claude 3P</div>
+            
+            <div class="bubble-body">
+              <svg class="ring-svg" viewBox="0 0 104 104">
+                <circle class="ring-track" cx="52" cy="52" r="46"/>
+                <circle class="ring-fill" id="ring-3p" cx="52" cy="52" r="46"
+                        stroke="url(#thirdparty-grad)"
+                        stroke-dasharray="289"
+                        stroke-dashoffset="289"/>
+                <circle class="ring-head-dot" id="dot-3p" cx="52" cy="6" r="3.5"/>
+                <defs>
+                  <linearGradient id="thirdparty-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#ec4899"/>
+                    <stop offset="100%" stop-color="#f43f5e"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+
+              <!-- Claude 3P Icon -->
+              <div class="bubble-logo">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12" stroke="url(#thirdparty-grad)" stroke-width="2.2" stroke-linecap="round"/>
+                  <circle cx="12" cy="12" r="4" fill="url(#thirdparty-grad)"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="bottom-chip">
+              <span class="beacon"></span>
+              <span id="chip-3p">0%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-BUBBLE: Argon 4 (Hidden until right-click) -->
+        <div class="sub-bubble-wrap hidden" id="sub-wrap-argon">
+          <div class="bubble-unit" id="bubble-argon" style="--current-accent: var(--argon-accent); --current-glow: var(--argon-glow);">
+            <div class="ambient-halo"></div>
+            <div class="top-pill">Argon 4</div>
+            
+            <div class="bubble-body">
+              <svg class="ring-svg" viewBox="0 0 104 104">
+                <circle class="ring-track" cx="52" cy="52" r="46"/>
+                <circle class="ring-fill" id="ring-argon" cx="52" cy="52" r="46"
+                        stroke="url(#argon-grad)"
+                        stroke-dasharray="289"
+                        stroke-dashoffset="289"/>
+                <circle class="ring-head-dot" id="dot-argon" cx="52" cy="6" r="3.5"/>
+                <defs>
+                  <linearGradient id="argon-grad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#fbbf24"/>
+                    <stop offset="100%" stop-color="#d97706"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+
+              <!-- Argon Diamond Vector -->
+              <div class="bubble-logo">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <polygon points="12 2 22 12 12 22 2 12" stroke="url(#argon-grad)" stroke-width="2.2" stroke-linejoin="round"/>
+                  <circle cx="12" cy="12" r="3" fill="url(#argon-grad)"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="bottom-chip">
+              <span class="beacon"></span>
+              <span id="chip-argon">0%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- MAIN BUBBLE: Antigravity / Gemini 3.8 Flash -->
+        <div class="bubble-unit" id="bubble-antigravity" style="--current-accent: var(--gemini-accent); --current-glow: var(--gemini-glow);">
+          <div class="ambient-halo"></div>
+          <div class="top-pill" id="tag-antigravity">Gemini 3.8</div>
+          
+          <div class="bubble-body">
+            <svg class="ring-svg" viewBox="0 0 104 104">
+              <circle class="ring-track" cx="52" cy="52" r="46"/>
+              <circle class="ring-fill" id="ring-gemini" cx="52" cy="52" r="46"
+                      stroke="url(#gemini-grad)"
+                      stroke-dasharray="289"
+                      stroke-dashoffset="104"/>
+              <circle class="ring-head-dot" id="dot-gemini" cx="17" cy="67" r="3.5"/>
+              <defs>
+                <linearGradient id="gemini-grad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#38bdf8"/>
+                  <stop offset="100%" stop-color="#0284c7"/>
+                </linearGradient>
+                <linearGradient id="antigravity-grad" x1="2" y1="2" x2="22" y2="22">
+                  <stop offset="0%" stop-color="#4285f4"/>
+                  <stop offset="40%" stop-color="#ea4335"/>
+                  <stop offset="70%" stop-color="#fbbc05"/>
+                  <stop offset="100%" stop-color="#34a853"/>
+                </linearGradient>
+              </defs>
+            </svg>
+
+            <!-- Google Antigravity Sparkle Vector -->
+            <div class="bubble-logo">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" fill="url(#antigravity-grad)"/>
+              </svg>
+            </div>
+          </div>
+
+          <div class="bottom-chip">
+            <span class="beacon"></span>
+            <span id="chip-gemini">64%</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ====================================================================
+       INTERACTIVE JAVASCRIPT CONTROLLER
+       ==================================================================== -->
+  <script>
+    const CIRCUMFERENCE = 2 * Math.PI * 46;
+
+    function calcRing(pct) {
+      const clamped = Math.min(100, Math.max(0, pct));
+      const offset = CIRCUMFERENCE * (1 - clamped / 100);
+      const angle = (clamped / 100) * 2 * Math.PI;
+      const cx = 52 + 46 * Math.cos(angle - Math.PI / 2);
+      const cy = 52 + 46 * Math.sin(angle - Math.PI / 2);
+      return { offset, cx, cy };
+    }
+
+    // State matching user's real file + demo data
+    const state = {
+      gemini5h: 64,
+      geminiWeekly: 2,
+      claude3p5h: 0,
+      claude3pWeekly: 99,
+      argon: 0,
+      codex5h: 45,
+      codexWeekly: 52,
+      claude5h: 18,
+      claudeWeekly: 24,
+      activeAgent: 'antigravity',
+      subExpanded: true,
+      panelOpen: true
+    };
+
+    function updateGeminiRing() {
+      document.getElementById('val-gemini-5h').textContent = `${state.gemini5h}%`;
+      document.getElementById('val-gemini-weekly').textContent = `${state.geminiWeekly}%`;
+      document.getElementById('chip-gemini').textContent = `${state.gemini5h}%`;
+
+      const { offset, cx, cy } = calcRing(state.gemini5h);
+      const ring = document.getElementById('ring-gemini');
+      const dot = document.getElementById('dot-gemini');
+      ring.style.strokeDashoffset = offset;
+      dot.setAttribute('cx', cx.toFixed(1));
+      dot.setAttribute('cy', cy.toFixed(1));
+
+      if (state.activeAgent === 'antigravity') renderPanel('antigravity');
+    }
+
+    function updateClaude3PRing() {
+      document.getElementById('val-3p-5h').textContent = `${state.claude3p5h}%`;
+      document.getElementById('val-3p-weekly').textContent = `${state.claude3pWeekly}%`;
+      document.getElementById('chip-3p').textContent = `${state.claude3p5h}%`;
+
+      const { offset, cx, cy } = calcRing(state.claude3p5h);
+      const ring = document.getElementById('ring-3p');
+      const dot = document.getElementById('dot-3p');
+      ring.style.strokeDashoffset = offset;
+      dot.setAttribute('cx', cx.toFixed(1));
+      dot.setAttribute('cy', cy.toFixed(1));
+
+      if (state.activeAgent === 'antigravity') renderPanel('antigravity');
+    }
+
+    function updateArgonRing() {
+      document.getElementById('val-argon').textContent = `${state.argon}%`;
+      document.getElementById('chip-argon').textContent = `${state.argon}%`;
+
+      const { offset, cx, cy } = calcRing(state.argon);
+      const ring = document.getElementById('ring-argon');
+      const dot = document.getElementById('dot-argon');
+      ring.style.strokeDashoffset = offset;
+      dot.setAttribute('cx', cx.toFixed(1));
+      dot.setAttribute('cy', cy.toFixed(1));
+
+      if (state.activeAgent === 'antigravity') renderPanel('antigravity');
+    }
+
+    function updateCodexRing() {
+      document.getElementById('val-codex-5h').textContent = `${state.codex5h}%`;
+      document.getElementById('chip-codex').textContent = `${state.codex5h}%`;
+
+      const { offset, cx, cy } = calcRing(state.codex5h);
+      const ring = document.getElementById('ring-codex');
+      const dot = document.getElementById('dot-codex');
+      ring.style.strokeDashoffset = offset;
+      dot.setAttribute('cx', cx.toFixed(1));
+      dot.setAttribute('cy', cy.toFixed(1));
+
+      if (state.activeAgent === 'codex') renderPanel('codex');
+    }
+
+    function updateClaudeRing() {
+      document.getElementById('val-claude-5h').textContent = `${state.claude5h}%`;
+      document.getElementById('chip-claude').textContent = `${state.claude5h}%`;
+
+      const { offset, cx, cy } = calcRing(state.claude5h);
+      const ring = document.getElementById('ring-claude');
+      const dot = document.getElementById('dot-claude');
+      ring.style.strokeDashoffset = offset;
+      dot.setAttribute('cx', cx.toFixed(1));
+      dot.setAttribute('cy', cy.toFixed(1));
+
+      if (state.activeAgent === 'claude') renderPanel('claude');
+    }
+
+    // Sliders
+    document.getElementById('slide-gemini-5h').addEventListener('input', (e) => {
+      state.gemini5h = Number(e.target.value);
+      updateGeminiRing();
+    });
+    document.getElementById('slide-gemini-weekly').addEventListener('input', (e) => {
+      state.geminiWeekly = Number(e.target.value);
+      updateGeminiRing();
+    });
+    document.getElementById('slide-3p-5h').addEventListener('input', (e) => {
+      state.claude3p5h = Number(e.target.value);
+      updateClaude3PRing();
+    });
+    document.getElementById('slide-3p-weekly').addEventListener('input', (e) => {
+      state.claude3pWeekly = Number(e.target.value);
+      updateClaude3PRing();
+    });
+    document.getElementById('slide-argon').addEventListener('input', (e) => {
+      state.argon = Number(e.target.value);
+      updateArgonRing();
+    });
+    document.getElementById('slide-codex-5h').addEventListener('input', (e) => {
+      state.codex5h = Number(e.target.value);
+      updateCodexRing();
+    });
+    document.getElementById('slide-claude-5h').addEventListener('input', (e) => {
+      state.claude5h = Number(e.target.value);
+      updateClaudeRing();
+    });
+
+    // Preset for user's real file
+    document.getElementById('btn-load-real').addEventListener('click', () => {
+      state.gemini5h = 64;
+      state.geminiWeekly = 2;
+      state.argon = 0;
+      state.claude3p5h = 0;
+      state.claude3pWeekly = 99;
+      document.getElementById('slide-gemini-5h').value = 64;
+      document.getElementById('slide-gemini-weekly').value = 2;
+      document.getElementById('slide-argon').value = 0;
+      document.getElementById('slide-3p-5h').value = 0;
+      document.getElementById('slide-3p-weekly').value = 99;
+      updateGeminiRing();
+      updateClaude3PRing();
+      updateArgonRing();
+      openPanel();
+      renderPanel('antigravity');
+    });
+
+    // RENDER PANEL DYNAMICALLY FOR THE ACTIVE AGENT
+    function renderPanel(agentId) {
+      state.activeAgent = agentId;
+      const avatar = document.getElementById('panel-avatar');
+      const title = document.getElementById('panel-title');
+      const plan = document.getElementById('panel-plan');
+      const badge = document.getElementById('panel-badge');
+      const heroModelName = document.getElementById('hero-model-name');
+      const heroPctDisplay = document.getElementById('hero-pct-display');
+      const heroBarFill = document.getElementById('hero-bar-fill');
+      const heroResetText = document.getElementById('hero-reset-text');
+      const heroAvailText = document.getElementById('hero-avail-text');
+      const metricList = document.getElementById('metric-list');
+      const heroCard = document.getElementById('hero-card');
+
+      document.querySelectorAll('.agent-btn').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById(`btn-show-${agentId}`);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      if (agentId === 'antigravity') {
+        avatar.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" fill="url(#antigravity-grad)"/>
+          </svg>
+        `;
+        title.textContent = 'Antigravity';
+        plan.textContent = 'Google AI Pro · 5 Barras de Cuota';
+        badge.textContent = 'ACTIVO';
+        
+        // Hero Card: Gemini 3.8 Flash & Pro (5h)
+        heroModelName.textContent = 'Gemini 3.8 Flash & Pro (5h)';
+        heroPctDisplay.innerHTML = `${state.gemini5h}<small>%</small>`;
+        heroBarFill.style.width = `${state.gemini5h}%`;
+        heroBarFill.style.background = 'linear-gradient(90deg, #0284c7, #38bdf8)';
+        heroBarFill.style.boxShadow = '0 0 14px rgba(56, 189, 248, 0.6)';
+        heroCard.style.setProperty('--hero-glow', 'rgba(56, 189, 248, 0.25)');
+        heroResetText.textContent = 'Resetea en 1h 45m';
+        heroAvailText.innerHTML = `Disponible: <b>${100 - state.gemini5h}%</b>`;
+
+        // Secondary cards: ALL 4 OTHER BARS (Including both weekly bars!)
+        metricList.innerHTML = `
+          <div class="metric-group-title">Grupo Gemini (Google)</div>
+
+          <!-- 1. GEMINI WEEKLY BAR -->
+          <div class="metric-card">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <span class="metric-label">Gemini 3.8 · Semanal (7 Días)</span>
+                <span class="metric-name">Flash & Pro Weekly Quota</span>
+              </div>
+              <div class="metric-pct">${state.geminiWeekly}<small>%</small></div>
+            </div>
+            <div class="mini-bar">
+              <div class="mini-bar-fill" style="width: ${state.geminiWeekly}%; background: linear-gradient(90deg, #0284c7, #38bdf8); box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);"></div>
+            </div>
+            <div class="metric-bot">
+              <span>Resetea en 6d 22h</span>
+              <span>Uso: <b>${state.geminiWeekly}%</b></span>
+            </div>
+          </div>
+
+          <div class="metric-group-title">Grupo Claude & OSS 3P</div>
+
+          <!-- 2. CLAUDE 3P 5H BAR -->
+          <div class="metric-card">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <span class="metric-label">Claude & OSS 3P · 5 Horas</span>
+                <span class="metric-name">Sonnet 3.7 / 3.5, Opus, GPT OSS</span>
+              </div>
+              <div class="metric-pct">${state.claude3p5h}<small>%</small></div>
+            </div>
+            <div class="mini-bar">
+              <div class="mini-bar-fill" style="width: ${state.claude3p5h}%; background: linear-gradient(90deg, #ec4899, #f43f5e); box-shadow: 0 0 10px rgba(236, 72, 153, 0.5);"></div>
+            </div>
+            <div class="metric-bot">
+              <span>Resetea en 4h 55m</span>
+              <span>Uso: <b>${state.claude3p5h}%</b></span>
+            </div>
+          </div>
+
+          <!-- 3. CLAUDE 3P WEEKLY BAR -->
+          <div class="metric-card">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <span class="metric-label">Claude & OSS 3P · Semanal (7 Días)</span>
+                <span class="metric-name">Sonnet 3.7 / 3.5, Opus, GPT OSS</span>
+              </div>
+              <div class="metric-pct">${state.claude3pWeekly}<small>%</small></div>
+            </div>
+            <div class="mini-bar">
+              <div class="mini-bar-fill" style="width: ${state.claude3pWeekly}%; background: linear-gradient(90deg, #ec4899, #f43f5e); box-shadow: 0 0 10px rgba(236, 72, 153, 0.5);"></div>
+            </div>
+            <div class="metric-bot">
+              <span>Resetea en 3h 05m</span>
+              <span>Uso: <b>${state.claude3pWeekly}%</b></span>
+            </div>
+          </div>
+
+          <div class="metric-group-title">Grupo Argon 4</div>
+
+          <!-- 4. ARGON 4 WTU WEEKLY -->
+          <div class="metric-card">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <span class="metric-label">Argon 4 · WTU Semanal</span>
+                <span class="metric-name">Argon 4 Thinking Quota</span>
+              </div>
+              <div class="metric-pct">${state.argon}<small>%</small></div>
+            </div>
+            <div class="mini-bar">
+              <div class="mini-bar-fill" style="width: ${state.argon}%; background: linear-gradient(90deg, #d97706, #fbbf24); box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);"></div>
+            </div>
+            <div class="metric-bot">
+              <span>Resetea en 6d 22h</span>
+              <span>Uso: <b>${state.argon}%</b></span>
+            </div>
+          </div>
+        `;
+      } else if (agentId === 'codex') {
+        avatar.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none">
+            <path fill="url(#codex-grad)" d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+          </svg>
+        `;
+        title.textContent = 'Codex';
+        plan.textContent = 'OpenAI Pro / Team · Rollout limits';
+        badge.textContent = 'ACTIVO';
+        heroModelName.textContent = 'Codex 5h Token Window';
+        heroPctDisplay.innerHTML = `${state.codex5h}<small>%</small>`;
+        heroBarFill.style.width = `${state.codex5h}%`;
+        heroBarFill.style.background = 'linear-gradient(90deg, #5d68ea, #7c86ff)';
+        heroBarFill.style.boxShadow = '0 0 14px rgba(124, 134, 255, 0.6)';
+        heroCard.style.setProperty('--hero-glow', 'rgba(124, 134, 255, 0.25)');
+        heroResetText.textContent = 'Resetea en 2h 45m';
+        heroAvailText.innerHTML = `Disponible: <b>${100 - state.codex5h}%</b>`;
+
+        metricList.innerHTML = `
+          <div class="metric-card">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <span class="metric-label">Codex Semanal · 7 Días</span>
+                <span class="metric-name">Rollout Total Usage</span>
+              </div>
+              <div class="metric-pct">${state.codexWeekly}<small>%</small></div>
+            </div>
+            <div class="mini-bar">
+              <div class="mini-bar-fill" style="width: ${state.codexWeekly}%; background: linear-gradient(90deg, #4f58c7, #7c86ff); box-shadow: 0 0 10px rgba(124, 134, 255, 0.4);"></div>
+            </div>
+            <div class="metric-bot">
+              <span>Resetea en 4d 08h</span>
+              <span>Uso: <b>${state.codexWeekly}%</b></span>
+            </div>
+          </div>
+        `;
+      } else if (agentId === 'claude') {
+        avatar.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M13.5 3L10.5 3L10.8 8.8L6.4 4.8L4.3 6.9L8.3 11.3L2.5 11L2.5 14L8.3 13.7L4.3 18.1L6.4 20.2L10.8 16.2L10.5 22L13.5 22L13.2 16.2L17.6 20.2L19.7 18.1L15.7 13.7L21.5 14L21.5 11L15.7 11.3L19.7 6.9L17.6 4.8L13.2 8.8L13.5 3Z" fill="url(#claude-grad)"/>
+          </svg>
+        `;
+        title.textContent = 'Claude Code';
+        plan.textContent = 'Pro Plan · Sonnet & Opus';
+        badge.textContent = 'ACTIVO';
+        heroModelName.textContent = 'Claude 5h Session Window';
+        heroPctDisplay.innerHTML = `${state.claude5h}<small>%</small>`;
+        heroBarFill.style.width = `${state.claude5h}%`;
+        heroBarFill.style.background = 'linear-gradient(90deg, #b85636, #f28d6d)';
+        heroBarFill.style.boxShadow = '0 0 14px rgba(242, 141, 109, 0.6)';
+        heroCard.style.setProperty('--hero-glow', 'rgba(242, 141, 109, 0.25)');
+        heroResetText.textContent = 'Resetea en 4h 12m';
+        heroAvailText.innerHTML = `Disponible: <b>${100 - state.claude5h}%</b>`;
+
+        metricList.innerHTML = `
+          <div class="metric-card">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <span class="metric-label">Claude Semanal · 7 Días</span>
+                <span class="metric-name">Cuenta Global Anthropic</span>
+              </div>
+              <div class="metric-pct">${state.claudeWeekly}<small>%</small></div>
+            </div>
+            <div class="mini-bar">
+              <div class="mini-bar-fill" style="width: ${state.claudeWeekly}%; background: linear-gradient(90deg, #b85636, #f28d6d); box-shadow: 0 0 10px rgba(242, 141, 109, 0.4);"></div>
+            </div>
+            <div class="metric-bot">
+              <span>Resetea en 5d 19h</span>
+              <span>Uso: <b>${state.claudeWeekly}%</b></span>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // Switcher click handlers
+    document.getElementById('btn-show-codex').addEventListener('click', () => {
+      openPanel();
+      renderPanel('codex');
+    });
+    document.getElementById('btn-show-claude').addEventListener('click', () => {
+      openPanel();
+      renderPanel('claude');
+    });
+    document.getElementById('btn-show-antigravity').addEventListener('click', () => {
+      openPanel();
+      renderPanel('antigravity');
+    });
+
+    // Sub-Widgets Toggle (Right Click on Antigravity or button)
+    function toggleSubWidgets() {
+      state.subExpanded = !state.subExpanded;
+      const wrap3p = document.getElementById('sub-wrap-3p');
+      const wrapArgon = document.getElementById('sub-wrap-argon');
+      const tagAntigravity = document.getElementById('tag-antigravity');
+
+      if (state.subExpanded) {
+        wrap3p.classList.remove('hidden');
+        wrap3p.classList.add('visible');
+        wrapArgon.classList.remove('hidden');
+        wrapArgon.classList.add('visible');
+        tagAntigravity.textContent = 'Gemini 3.8';
+        document.getElementById('btn-toggle-sub').classList.add('active');
+      } else {
+        wrap3p.classList.remove('visible');
+        wrap3p.classList.add('hidden');
+        wrapArgon.classList.remove('visible');
+        wrapArgon.classList.add('hidden');
+        tagAntigravity.textContent = 'Antigravity';
+        document.getElementById('btn-toggle-sub').classList.remove('active');
+      }
+    }
+
+    document.getElementById('btn-toggle-sub').addEventListener('click', toggleSubWidgets);
+    document.getElementById('bubble-antigravity').addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      toggleSubWidgets();
+    });
+
+    // Panel Toggle
+    function openPanel() {
+      state.panelOpen = true;
+      document.getElementById('details-panel').classList.add('open');
+      document.getElementById('btn-toggle-panel').classList.add('active');
+    }
+
+    function closePanel() {
+      state.panelOpen = false;
+      document.getElementById('details-panel').classList.remove('open');
+      document.getElementById('btn-toggle-panel').classList.remove('active');
+    }
+
+    function togglePanel() {
+      if (state.panelOpen) closePanel();
+      else openPanel();
+    }
+
+    document.getElementById('btn-toggle-panel').addEventListener('click', togglePanel);
+    document.getElementById('btn-close-panel').addEventListener('click', closePanel);
+
+    // Clicking bubbles opens respective panel
+    document.getElementById('bubble-codex').addEventListener('click', () => {
+      openPanel();
+      renderPanel('codex');
+    });
+    document.getElementById('bubble-claude').addEventListener('click', () => {
+      openPanel();
+      renderPanel('claude');
+    });
+    document.getElementById('bubble-antigravity').addEventListener('click', () => {
+      openPanel();
+      renderPanel('antigravity');
+    });
+
+    // Themes
+    const themes = {
+      'theme-obsidian': '',
+      'theme-cyber': 'theme-cyber',
+      'theme-frost': 'theme-frost',
+      'theme-oled': 'theme-oled'
+    };
+
+    Object.keys(themes).forEach(id => {
+      document.getElementById(id).addEventListener('click', () => {
+        document.body.className = themes[id];
+        document.querySelectorAll('.lab-section:nth-child(5) .btn-chip').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+      });
+    });
+
+    // Initialize with expanded cluster and antigravity panel open
+    toggleSubWidgets(); // expand on start
+    updateGeminiRing();
+    updateClaude3PRing();
+    updateArgonRing();
+    updateCodexRing();
+    updateClaudeRing();
+    renderPanel('antigravity');
+  </script>
+</body>
+</html>
