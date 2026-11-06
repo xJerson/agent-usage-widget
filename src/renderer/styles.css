@@ -124,6 +124,55 @@ body.dragging, body.dragging .bubble { cursor: grabbing; }
 .head .title { font-size: 15px; font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; }
 .head .plan { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .badge { margin-left: auto; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 99px; border: 1px solid; }
+
+/* Model Cards Deck for Multi-model Agents (Antigravity) */
+.model-deck {
+  display: flex; gap: 7px; margin-bottom: 12px;
+}
+.model-card-btn {
+  flex: 1; padding: 7px 8px; border-radius: 12px; background: var(--surface-card);
+  border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px;
+  cursor: pointer; transition: all 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  text-align: left; position: relative; overflow: hidden;
+  font-family: inherit; color: var(--text);
+}
+.model-card-btn::before {
+  content: ""; position: absolute; top: 0; left: 8px; right: 8px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  opacity: 0; transition: opacity 0.2s;
+}
+.model-card-btn:hover {
+  background: var(--surface-card-hover); border-color: rgba(255, 255, 255, 0.14);
+}
+.model-card-btn.active {
+  background: rgba(255, 255, 255, 0.08); border-color: var(--border-highlight);
+  box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 12px var(--glow, transparent);
+  transform: translateY(-2px);
+}
+.model-card-btn.active::before { opacity: 1; }
+.mc-header { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.mc-label { font-size: 10px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.mc-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.mc-star {
+  font-size: 8px; font-weight: 750; letter-spacing: 0.03em; color: #fbbf24;
+  background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.3);
+  padding: 1px 4px; border-radius: 99px; white-space: nowrap;
+}
+.mc-pin-btn {
+  font-size: 8px; font-weight: 600; color: var(--muted); opacity: 0;
+  transition: opacity 0.15s, color 0.15s; background: rgba(255, 255, 255, 0.06);
+  padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.model-card-btn:hover .mc-pin-btn { opacity: 1; }
+.mc-pin-btn:hover { color: #fbbf24; border-color: rgba(251, 191, 36, 0.4); }
+.mc-metric-row { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
+.mc-pct {
+  font-size: 14px; font-weight: 750; font-family: ui-monospace, "Cascadia Code", "SF Mono", monospace;
+  font-variant-numeric: tabular-nums; color: var(--text); letter-spacing: -0.02em;
+}
+.mc-pct small { font-size: 8.5px; font-weight: 500; color: var(--muted); margin-left: 1px; }
+.mc-cadence { font-size: 8.5px; color: var(--muted); font-weight: 500; }
+
 .metric {
   padding: 11px 13px 12px; border-radius: 15px; background: var(--surface-card);
   border: 1px solid var(--border); margin-bottom: 9px; transition: background 0.2s, border-color 0.2s;

@@ -99,11 +99,31 @@ export interface ToastMessage {
   kind: 'info' | 'error';
 }
 
+export type AntigravityModelKey = 'gemini' | '3p' | 'argon';
+
+export interface AntigravityModelSummary {
+  key: AntigravityModelKey;
+  name: string;
+  planLabel: string;
+  brand: string;
+  brandLight: string;
+  pct: number;
+  cadence: string;
+  windows: UsageWindow[];
+}
+
+export interface AntigravityClusterData {
+  activeKey: AntigravityModelKey;
+  primaryKey: AntigravityModelKey;
+  models: AntigravityModelSummary[];
+}
+
 /** Content of the detail panel window. */
 export interface FloatPanelData {
   entry: UsageEntry;
   preview: ConnectPreview | null;
   hint: string | null;
+  antigravityCluster?: AntigravityClusterData;
 }
 
 /** Geometry the bubble window reports (client coordinates, already scaled) so floating windows can be placed. */

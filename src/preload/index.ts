@@ -34,6 +34,8 @@ const api: WidgetApi = {
   floatBar: (state) => ipcRenderer.send(IPC.floatBar, state),
   barAnswer: (confirm) => ipcRenderer.send(IPC.barAnswer, confirm === true),
   onEditAnswer: (cb) => subscribe(IPC.editAnswer, cb),
+  setPrimaryModel: (agentId, modelKey) => ipcRenderer.send(IPC.setPrimaryModel, agentId, modelKey),
+  onSetPrimaryModel: (cb) => subscribe<{ agentId: string; modelKey: string }>(IPC.setPrimaryModel, (e) => cb(e.agentId, e.modelKey)),
   onFloatContent: (cb) => subscribe(IPC.floatContent, cb),
   floatSize: (size) => ipcRenderer.invoke(IPC.floatSize, { width: size.width, height: size.height }),
   floatHidden: () => ipcRenderer.send(IPC.floatHidden),

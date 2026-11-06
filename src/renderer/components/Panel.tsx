@@ -1,5 +1,5 @@
-import { forwardRef, type CSSProperties } from 'react';
-import type { ConnectPreview, UsageEntry } from '../../shared/types';
+import { forwardRef, useEffect, useState, type CSSProperties } from 'react';
+import type { AntigravityClusterData, AntigravityModelKey, ConnectPreview, UsageEntry } from '../../shared/types';
 import { formatAgo, formatRemaining, levelOf, resolveWindow, windowLabel } from '../../shared/usage';
 import { CONNECTABLE_AGENTS } from '../../shared/connectAgents';
 import { statusGradient } from '../lib/colors';
@@ -20,31 +20,128 @@ interface PanelProps {
   preview?: ConnectPreview | null;
   /** Shown under "Waiting for first prompt" while Claude Code is not connected. */
   hint?: string | null;
+  antigravityCluster?: AntigravityClusterData;
 }
 
-export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel({ entry, now, preview = null, hint = null, style, shown = false }, ref) {
+export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel(
+  { entry, now, preview = null, hint = null, style, shown = false, antigravityCluster },
+  ref,
+) {
+  const [selectedKey, setSelectedKey] = useState<AntigravityModelKey>(() => antigravityCluster?.activeKey ?? 'gemini');
+  const [primaryKey, setPrimaryKey] = useState<AntigravityModelKey>(() => antigravityCluster?.primaryKey ?? 'gemini');
+
+  useEffect(() => {
+    if (antigravityCluster) {
+      setSelectedKey(antigravityCluster.activeKey);
+      setPrimaryKey(antigravityCluster.primaryKey);
+    }
+  }, [antigravityCluster?.activeKey, antigravityCluster?.primaryKey]);
+
+  const activeModelSummary = antigravityCluster?.models.find((m) => m.key === selectedKey);
   const { agent, snapshot } = entry;
-  const windows = snapshot ? [...snapshot.windows].sort((x, y) => (x.order ?? x.minutes) - (y.order ?? y.minutes)) : [];
-  const plan = (snapshot?.plan || agent.planLabel).toUpperCase();
+
+  const displayAgent = activeModelSummary
+    ? {
+        ...agent,
+        name: `Antigravity · ${activeModelSummary.name}`,
+        brand: activeModelSummary.brand,
+        brandLight: activeModelSummary.brandLight,
+        planLabel: activeModelSummary.planLabel,
+      }
+    : agent;
+
+  const rawWindows = activeModelSummary
+    ? activeModelSummary.windows
+    : snapshot
+    ? snapshot.windows
+    : [];
+
+  const windows = [...rawWindows].sort((x, y) => (x.order ?? x.minutes) - (y.order ?? y.minutes));
+  const plan = (snapshot?.plan || displayAgent.planLabel).toUpperCase();
   const rootId = agent.id.startsWith('antigravity') ? 'antigravity' : agent.id;
   const connect = CONNECTABLE_AGENTS[rootId] ?? { name: agent.name, folder: '' };
 
+  const handleSetPrimary = (key: AntigravityModelKey) => {
+    setPrimaryKey(key);
+    window.widget.setPrimaryModel('antigravity', key);
+  };
+
   return (
-    <div ref={ref} style={style} id={`p-${agent.id}`} className={`panel open${shown ? ' in' : ''}`} role="dialog" aria-label={`${agent.name} usage limits`}>
+    <div
+      ref={ref}
+      style={style}
+      id={`p-${agent.id}`}
+      className={`panel open${shown ? ' in' : ''}`}
+      role="dialog"
+      aria-label={`${displayAgent.name} usage limits`}
+    >
       <div className="head">
-        <div className="mark" style={{ borderColor: `${agent.brand}55`, background: `${agent.brand}1f` }}>
-          {renderLogo(agent, 18)}
+        <div className="mark" style={{ borderColor: `${displayAgent.brand}55`, background: `${displayAgent.brand}1f` }}>
+          {renderLogo(displayAgent, 18)}
         </div>
         <div>
-          <div className="title">{agent.name}</div>
+          <div className="title">{displayAgent.name}</div>
           <div className="plan">Usage limits</div>
         </div>
         {plan && (
-          <span className="badge" style={{ color: agent.brandLight, borderColor: `${agent.brand}55`, background: `${agent.brand}22` }}>
+          <span className="badge" style={{ color: displayAgent.brandLight, borderColor: `${displayAgent.brand}55`, background: `${displayAgent.brand}22` }}>
             {plan}
           </span>
         )}
       </div>
+
+      {antigravityCluster && (
+        <div className="model-deck" role="tablist" aria-label="Modelos de Antigravity">
+          {antigravityCluster.models.map((m) => {
+            const isSelected = m.key === selectedKey;
+            const isPrimary = m.key === primaryKey;
+            return (
+              <button
+                key={m.key}
+                type="button"
+                className={`model-card-btn${isSelected ? ' active' : ''}`}
+                role="tab"
+                aria-selected={isSelected}
+                style={{ ['--glow' as string]: `${m.brand}aa` } as CSSProperties}
+                onClick={() => setSelectedKey(m.key)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSetPrimary(m.key);
+                }}
+                title={`${m.name} (Clic para ver métricas, Clic derecho para fijar como widget principal)`}
+              >
+                <div className="mc-header">
+                  <span className="mc-label">
+                    <span className="mc-dot" style={{ background: m.brand }} />
+                    {m.name}
+                  </span>
+                  {isPrimary ? (
+                    <span className="mc-star" title="Modelo fijado como principal en el widget colapsado">★ Principal</span>
+                  ) : (
+                    <span
+                      className="mc-pin-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSetPrimary(m.key);
+                      }}
+                      title="Fijar como modelo principal"
+                    >
+                      Fijar
+                    </span>
+                  )}
+                </div>
+                <div className="mc-metric-row">
+                  <span className="mc-pct">
+                    {Math.round(m.pct)}<small>%</small>
+                  </span>
+                  <span className="mc-cadence">{m.cadence}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {preview && (
         <div className="changes">
@@ -70,7 +167,7 @@ export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel({ ent
       )}
       {windows.map((w) => {
         const r = resolveWindow(w, now);
-        const [ca, cb] = statusGradient(agent, levelOf(r.usedPercent));
+        const [ca, cb] = statusGradient(displayAgent, levelOf(r.usedPercent));
         const label = w.label ?? windowLabel(w.minutes);
         const key = w.id ?? `${w.minutes}-${w.label ?? ''}`;
         return (
