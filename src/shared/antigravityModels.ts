@@ -10,7 +10,7 @@ export const GEMINI_MODEL_AGENT: AgentInfo = {
 
 export const ARGON_MODEL_AGENT: AgentInfo = {
   id: 'antigravity:argon',
-  name: 'Argon',
+  name: 'Argon 4',
   planLabel: 'Argon 4',
   brand: '#9333ea',
   brandLight: '#c084fc',
@@ -18,8 +18,8 @@ export const ARGON_MODEL_AGENT: AgentInfo = {
 
 export const THIRD_PARTY_MODEL_AGENT: AgentInfo = {
   id: 'antigravity:3p',
-  name: '3P / Claude',
-  planLabel: 'Claude & OSS',
+  name: 'Claude / 3P',
+  planLabel: 'Sonnet & OSS',
   brand: '#d97757',
   brandLight: '#f2b08c',
 };
@@ -47,15 +47,26 @@ export function splitAntigravityEntry(agyEntry: UsageEntry): SplitAntigravityRes
   return {
     gemini: {
       agent: GEMINI_MODEL_AGENT,
-      snapshot: snap ? { ...snap, agentId: GEMINI_MODEL_AGENT.id, windows: geminiWindows } : null,
+      snapshot: snap
+        ? { ...snap, agentId: GEMINI_MODEL_AGENT.id, plan: GEMINI_MODEL_AGENT.planLabel, windows: geminiWindows }
+        : null,
     },
     argon: {
       agent: ARGON_MODEL_AGENT,
-      snapshot: snap ? { ...snap, agentId: ARGON_MODEL_AGENT.id, windows: argonWindows } : null,
+      snapshot: snap
+        ? { ...snap, agentId: ARGON_MODEL_AGENT.id, plan: ARGON_MODEL_AGENT.planLabel, windows: argonWindows }
+        : null,
     },
     thirdParty: {
       agent: THIRD_PARTY_MODEL_AGENT,
-      snapshot: snap ? { ...snap, agentId: THIRD_PARTY_MODEL_AGENT.id, windows: thirdPartyWindows } : null,
+      snapshot: snap
+        ? {
+            ...snap,
+            agentId: THIRD_PARTY_MODEL_AGENT.id,
+            plan: THIRD_PARTY_MODEL_AGENT.planLabel,
+            windows: thirdPartyWindows,
+          }
+        : null,
     },
   };
 }

@@ -76,10 +76,18 @@ export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel({ ent
         return (
           <div className={`metric${r.limitReached ? ' limit' : ''}`} key={key}>
             <div className="m-top">
-              <span className="m-label">
-                {label}
-                {r.limitReached && <span className="m-limit">Limit reached</span>}
-              </span>
+              <div className="m-meta">
+                <span className="m-label">
+                  {label}
+                  {r.limitReached && <span className="m-limit">Limit reached</span>}
+                </span>
+                {w.models && (
+                  <div className="m-models">
+                    <span className="m-models-tag">Modelos:</span>
+                    <span>{w.models}</span>
+                  </div>
+                )}
+              </div>
               <span className="m-pct">
                 <span>{Math.round(r.usedPercent)}</span>
                 <small>%</small>

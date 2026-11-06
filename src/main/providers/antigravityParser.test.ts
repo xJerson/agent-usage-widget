@@ -26,30 +26,35 @@ describe('parseAntigravityStatusline', () => {
 
     expect(s.windows[0]!.id).toBe('gemini-5h');
     expect(s.windows[0]!.label).toBe('Gemini · 5h');
+    expect(s.windows[0]!.models).toBe('Gemini 3.8 Flash, Pro');
     expect(s.windows[0]!.minutes).toBe(300);
     expect(s.windows[0]!.usedPercent).toBeCloseTo(8.12913, 4);
     expect(s.windows[0]!.resetsAt).toBe(Date.parse('2026-11-04T00:43:20Z') / 1000);
 
     expect(s.windows[1]!.id).toBe('gemini-weekly');
     expect(s.windows[1]!.label).toBe('Gemini · Weekly (7d)');
+    expect(s.windows[1]!.models).toBe('Gemini 3.8 Flash, Pro');
     expect(s.windows[1]!.minutes).toBe(10080);
     expect(s.windows[1]!.usedPercent).toBeCloseTo(26.13763, 4);
     expect(s.windows[1]!.resetsAt).toBe(Date.parse('2026-11-06T16:58:18Z') / 1000);
 
     expect(s.windows[2]!.id).toBe('gemini-argon-wtu-weekly');
-    expect(s.windows[2]!.label).toBe('Gemini Argon · WTU Weekly');
+    expect(s.windows[2]!.label).toBe('Argon 4 · WTU Weekly');
+    expect(s.windows[2]!.models).toBe('Argon 4');
     expect(s.windows[2]!.minutes).toBe(10080);
     expect(s.windows[2]!.usedPercent).toBeCloseTo(75.50545, 4);
     expect(s.windows[2]!.resetsAt).toBe(Date.parse('2026-11-06T16:58:12Z') / 1000);
 
     expect(s.windows[3]!.id).toBe('3p-5h');
-    expect(s.windows[3]!.label).toBe('Third-party (3P) · 5h');
+    expect(s.windows[3]!.label).toBe('Claude & OSS (3P) · 5h');
+    expect(s.windows[3]!.models).toBe('Claude 3.5 Sonnet, Opus, GPT OSS 120B');
     expect(s.windows[3]!.minutes).toBe(300);
     expect(s.windows[3]!.usedPercent).toBe(0);
     expect(s.windows[3]!.resetsAt).toBe(Date.parse('2026-11-04T01:36:02Z') / 1000);
 
     expect(s.windows[4]!.id).toBe('3p-weekly');
-    expect(s.windows[4]!.label).toBe('Third-party (3P) · Weekly (7d)');
+    expect(s.windows[4]!.label).toBe('Claude & OSS (3P) · Weekly (7d)');
+    expect(s.windows[4]!.models).toBe('Claude 3.5 Sonnet, Opus, GPT OSS 120B');
     expect(s.windows[4]!.minutes).toBe(10080);
     expect(s.windows[4]!.usedPercent).toBeCloseTo(58.75224, 4);
     expect(s.windows[4]!.resetsAt).toBe(Date.parse('2026-11-06T20:33:35Z') / 1000);
@@ -84,7 +89,7 @@ describe('parseAntigravityStatusline', () => {
   it('keeps a bucket with an unparseable reset time but no resetsAt', () => {
     const s = parse({ quota: { 'gemini-5h': bucket(0.5, 'soon') } })!;
     expect(s.windows).toEqual([
-      { id: 'gemini-5h', label: 'Gemini · 5h', order: 1, minutes: 300, usedPercent: 50, resetsAt: null },
+      { id: 'gemini-5h', label: 'Gemini · 5h', models: 'Gemini 3.8 Flash, Pro', order: 1, minutes: 300, usedPercent: 50, resetsAt: null },
     ]);
   });
 
@@ -126,10 +131,10 @@ describe('ensureAntigravityWindows', () => {
     const res = ensureAntigravityWindows([w]);
     expect(res).toHaveLength(5);
     expect(res[0]).toEqual(w);
-    expect(res[1]).toEqual({ id: 'gemini-weekly', label: 'Gemini · Weekly (7d)', order: 2, minutes: 10080, usedPercent: 0, resetsAt: null });
-    expect(res[2]).toEqual({ id: 'gemini-argon-wtu-weekly', label: 'Gemini Argon · WTU Weekly', order: 3, minutes: 10080, usedPercent: 0, resetsAt: null });
-    expect(res[3]).toEqual({ id: '3p-5h', label: 'Third-party (3P) · 5h', order: 4, minutes: 300, usedPercent: 0, resetsAt: null });
-    expect(res[4]).toEqual({ id: '3p-weekly', label: 'Third-party (3P) · Weekly (7d)', order: 5, minutes: 10080, usedPercent: 0, resetsAt: null });
+    expect(res[1]).toEqual({ id: 'gemini-weekly', label: 'Gemini · Weekly (7d)', models: 'Gemini 3.8 Flash, Pro', order: 2, minutes: 10080, usedPercent: 0, resetsAt: null });
+    expect(res[2]).toEqual({ id: 'gemini-argon-wtu-weekly', label: 'Argon 4 · WTU Weekly', models: 'Argon 4', order: 3, minutes: 10080, usedPercent: 0, resetsAt: null });
+    expect(res[3]).toEqual({ id: '3p-5h', label: 'Claude & OSS (3P) · 5h', models: 'Claude 3.5 Sonnet, Opus, GPT OSS 120B', order: 4, minutes: 300, usedPercent: 0, resetsAt: null });
+    expect(res[4]).toEqual({ id: '3p-weekly', label: 'Claude & OSS (3P) · Weekly (7d)', models: 'Claude 3.5 Sonnet, Opus, GPT OSS 120B', order: 5, minutes: 10080, usedPercent: 0, resetsAt: null });
   });
   it('stays empty when there is no window at all (nothing to show yet)', () => {
     expect(ensureAntigravityWindows([])).toEqual([]);

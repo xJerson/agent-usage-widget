@@ -214,11 +214,11 @@ describe('AntigravityProvider', () => {
     expect(snap?.plan).toBe('Pro');
     expect(snap?.updatedAt).toBe(1_700_000_000_000);
     expect(snap?.windows).toEqual([
-      { id: 'gemini-5h', label: 'Gemini · 5h', order: 1, minutes: 300, usedPercent: 25, resetsAt: Date.parse('2026-11-04T00:43:20Z') / 1000 },
-      { id: 'gemini-weekly', label: 'Gemini · Weekly (7d)', order: 2, minutes: 10080, usedPercent: 0, resetsAt: null },
-      { id: 'gemini-argon-wtu-weekly', label: 'Gemini Argon · WTU Weekly', order: 3, minutes: 10080, usedPercent: 0, resetsAt: null },
-      { id: '3p-5h', label: 'Third-party (3P) · 5h', order: 4, minutes: 300, usedPercent: 0, resetsAt: null },
-      { id: '3p-weekly', label: 'Third-party (3P) · Weekly (7d)', order: 5, minutes: 10080, usedPercent: 0, resetsAt: null },
+      { id: 'gemini-5h', label: 'Gemini · 5h', models: 'Gemini 3.8 Flash, Pro', order: 1, minutes: 300, usedPercent: 25, resetsAt: Date.parse('2026-11-04T00:43:20Z') / 1000 },
+      { id: 'gemini-weekly', label: 'Gemini · Weekly (7d)', models: 'Gemini 3.8 Flash, Pro', order: 2, minutes: 10080, usedPercent: 0, resetsAt: null },
+      { id: 'gemini-argon-wtu-weekly', label: 'Argon 4 · WTU Weekly', models: 'Argon 4', order: 3, minutes: 10080, usedPercent: 0, resetsAt: null },
+      { id: '3p-5h', label: 'Claude & OSS (3P) · 5h', models: 'Claude 3.5 Sonnet, Opus, GPT OSS 120B', order: 4, minutes: 300, usedPercent: 0, resetsAt: null },
+      { id: '3p-weekly', label: 'Claude & OSS (3P) · Weekly (7d)', models: 'Claude 3.5 Sonnet, Opus, GPT OSS 120B', order: 5, minutes: 10080, usedPercent: 0, resetsAt: null },
     ]);
   });
 

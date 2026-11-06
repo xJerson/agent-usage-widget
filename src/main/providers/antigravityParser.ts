@@ -5,11 +5,11 @@ export const ANTIGRAVITY_ID = 'antigravity';
 
 /** Individual quota buckets reported by Antigravity CLI. */
 export const ANTIGRAVITY_SOURCES = [
-  { key: 'gemini-5h', minutes: 300, label: 'Gemini · 5h', order: 1 },
-  { key: 'gemini-weekly', minutes: 10080, label: 'Gemini · Weekly (7d)', order: 2 },
-  { key: 'gemini-argon-wtu-weekly', minutes: 10080, label: 'Gemini Argon · WTU Weekly', order: 3 },
-  { key: '3p-5h', minutes: 300, label: 'Third-party (3P) · 5h', order: 4 },
-  { key: '3p-weekly', minutes: 10080, label: 'Third-party (3P) · Weekly (7d)', order: 5 },
+  { key: 'gemini-5h', minutes: 300, label: 'Gemini · 5h', models: 'Gemini 3.8 Flash, Pro', order: 1 },
+  { key: 'gemini-weekly', minutes: 10080, label: 'Gemini · Weekly (7d)', models: 'Gemini 3.8 Flash, Pro', order: 2 },
+  { key: 'gemini-argon-wtu-weekly', minutes: 10080, label: 'Argon 4 · WTU Weekly', models: 'Argon 4', order: 3 },
+  { key: '3p-5h', minutes: 300, label: 'Claude & OSS (3P) · 5h', models: 'Claude 3.5 Sonnet, Opus, GPT OSS 120B', order: 4 },
+  { key: '3p-weekly', minutes: 10080, label: 'Claude & OSS (3P) · Weekly (7d)', models: 'Claude 3.5 Sonnet, Opus, GPT OSS 120B', order: 5 },
 ] as const;
 
 export type AntigravitySourceKey = (typeof ANTIGRAVITY_SOURCES)[number]['key'];
@@ -54,7 +54,7 @@ export function parseAntigravityStatusline(raw: string, fallbackUpdatedAt: numbe
   const windows: UsageWindow[] = [];
   const quota = data['quota'];
   if (isRecord(quota)) {
-    for (const { key, minutes, label, order } of ANTIGRAVITY_SOURCES) {
+    for (const { key, minutes, label, models, order } of ANTIGRAVITY_SOURCES) {
       const bucket = quota[key];
       if (!isRecord(bucket)) continue;
       const remaining = bucket['remaining_fraction'];
@@ -62,6 +62,7 @@ export function parseAntigravityStatusline(raw: string, fallbackUpdatedAt: numbe
       windows.push({
         id: key,
         label,
+        models,
         order,
         minutes,
         usedPercent: clampPercent((1 - remaining) * 100),
@@ -86,10 +87,11 @@ export function parseAntigravityStatusline(raw: string, fallbackUpdatedAt: numbe
 export function ensureAntigravityWindows(windows: readonly UsageWindow[]): UsageWindow[] {
   if (windows.length === 0) return [];
   return ANTIGRAVITY_SOURCES.map(
-    ({ key, minutes, label, order }) =>
+    ({ key, minutes, label, models, order }) =>
       windows.find((w) => w.id === key || (!w.id && w.minutes === minutes)) ?? {
         id: key,
         label,
+        models,
         order,
         minutes,
         usedPercent: 0,

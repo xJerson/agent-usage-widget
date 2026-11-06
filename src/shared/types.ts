@@ -19,6 +19,8 @@ export interface UsageWindow {
   label?: string;
   /** Explicit display order in the panel. When omitted, falls back to `minutes`. */
   order?: number;
+  /** Explicit model names corresponding to this quota bucket (e.g. 'Argon 4', 'Claude 3.5 Sonnet, Opus, GPT OSS 120B'). */
+  models?: string;
 }
 
 export interface UsageSnapshot {

@@ -22,11 +22,11 @@ describe('splitAntigravityEntry', () => {
         plan: 'Pro',
         updatedAt: 1000,
         windows: [
-          { id: 'gemini-5h', label: 'Gemini · 5h', order: 1, minutes: 300, usedPercent: 10, resetsAt: 2000 },
-          { id: 'gemini-weekly', label: 'Gemini · Weekly (7d)', order: 2, minutes: 10080, usedPercent: 20, resetsAt: 3000 },
-          { id: 'gemini-argon-wtu-weekly', label: 'Gemini Argon · WTU Weekly', order: 3, minutes: 10080, usedPercent: 75, resetsAt: 4000 },
-          { id: '3p-5h', label: 'Third-party (3P) · 5h', order: 4, minutes: 300, usedPercent: 0, resetsAt: 5000 },
-          { id: '3p-weekly', label: 'Third-party (3P) · Weekly (7d)', order: 5, minutes: 10080, usedPercent: 50, resetsAt: 6000 },
+          { id: 'gemini-5h', label: 'Gemini · 5h', models: 'Gemini 3.8 Flash, Pro', order: 1, minutes: 300, usedPercent: 10, resetsAt: 2000 },
+          { id: 'gemini-weekly', label: 'Gemini · Weekly (7d)', models: 'Gemini 3.8 Flash, Pro', order: 2, minutes: 10080, usedPercent: 20, resetsAt: 3000 },
+          { id: 'gemini-argon-wtu-weekly', label: 'Argon 4 · WTU Weekly', models: 'Argon 4', order: 3, minutes: 10080, usedPercent: 75, resetsAt: 4000 },
+          { id: '3p-5h', label: 'Claude & OSS (3P) · 5h', models: 'Claude 3.5 Sonnet, Opus, GPT OSS 120B', order: 4, minutes: 300, usedPercent: 0, resetsAt: 5000 },
+          { id: '3p-weekly', label: 'Claude & OSS (3P) · Weekly (7d)', models: 'Claude 3.5 Sonnet, Opus, GPT OSS 120B', order: 5, minutes: 10080, usedPercent: 50, resetsAt: 6000 },
         ],
       },
     };
@@ -35,14 +35,17 @@ describe('splitAntigravityEntry', () => {
 
     expect(gemini.agent).toEqual(GEMINI_MODEL_AGENT);
     expect(gemini.snapshot?.agentId).toBe('antigravity:gemini');
+    expect(gemini.snapshot?.plan).toBe(GEMINI_MODEL_AGENT.planLabel);
     expect(gemini.snapshot?.windows.map((w) => w.id)).toEqual(['gemini-5h', 'gemini-weekly']);
 
     expect(argon.agent).toEqual(ARGON_MODEL_AGENT);
     expect(argon.snapshot?.agentId).toBe('antigravity:argon');
+    expect(argon.snapshot?.plan).toBe(ARGON_MODEL_AGENT.planLabel);
     expect(argon.snapshot?.windows.map((w) => w.id)).toEqual(['gemini-argon-wtu-weekly']);
 
     expect(thirdParty.agent).toEqual(THIRD_PARTY_MODEL_AGENT);
     expect(thirdParty.snapshot?.agentId).toBe('antigravity:3p');
+    expect(thirdParty.snapshot?.plan).toBe(THIRD_PARTY_MODEL_AGENT.planLabel);
     expect(thirdParty.snapshot?.windows.map((w) => w.id)).toEqual(['3p-5h', '3p-weekly']);
   });
 
