@@ -65,6 +65,33 @@ export function AntigravityMark({ color, size }: { color?: string; size: number 
 
 export const GeminiMark = AntigravityMark;
 
+/** Argon mark: Google's reasoning sparkle with luminous nucleus and thinking spark in purple. */
+export function ArgonMark({ color, size }: { color?: string; size: number }) {
+  const gradId = `argon-grad-${size}`;
+  return (
+    <svg className="mk" width={size} height={size} viewBox="-12 -12 24 24" aria-hidden="true">
+      <defs>
+        <linearGradient id={gradId} x1="-10" y1="-10" x2="10" y2="10" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#c084fc" />
+          <stop offset="50%" stopColor="#9333ea" />
+          <stop offset="100%" stopColor="#7e22ce" />
+        </linearGradient>
+      </defs>
+      <path
+        fill={color && color !== '#9333ea' && color !== '#c084fc' ? color : `url(#${gradId})`}
+        d="M 0 -10.5 C 0 -2.4 2.4 0 10.5 0 C 2.4 0 0 2.4 0 10.5 C 0 2.4 -2.4 0 -10.5 0 C -2.4 0 0 -2.4 0 -10.5 Z"
+      />
+      <circle cx="0" cy="0" r="2.8" fill="#ffffff" opacity="0.95" />
+      <circle cx="0" cy="0" r="1.4" fill="#581c87" />
+      <path
+        fill="#e9d5ff"
+        opacity="0.9"
+        d="M 6.5 -8.8 C 6.5 -7.2 7.2 -6.5 8.8 -6.5 C 7.2 -6.5 6.5 -5.8 6.5 -4.2 C 6.5 -5.8 5.8 -6.5 4.2 -6.5 C 5.8 -6.5 6.5 -7.2 6.5 -8.8 Z"
+      />
+    </svg>
+  );
+}
+
 /** Neutral mark for agents that have no dedicated logo yet. */
 export function GenericMark({ color, size }: { color: string; size: number }) {
   return (

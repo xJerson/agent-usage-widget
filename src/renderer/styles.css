@@ -35,6 +35,28 @@ body {
 .item > .bubble-host { position: absolute; inset: 0; }
 body.dragging, body.dragging .bubble { cursor: grabbing; }
 
+/* Antigravity expanded model row */
+.antigravity-cluster {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 24px;
+}
+.sub-item.in {
+  animation: sub-pop-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.25) forwards;
+}
+@keyframes sub-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6) translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Floating windows (panel, toast, edit bar): invisible until the window has its final size */
 .float-shell { position: fixed; left: 0; top: 0; width: max-content; }
 .float-shell[data-phase="hidden"], .float-shell[data-phase="measuring"] { visibility: hidden; }

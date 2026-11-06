@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { AgentInfo } from '../../shared/types';
-import { AntigravityMark, Burst, CodexMark, GenericMark } from './logos';
+import { AntigravityMark, ArgonMark, Burst, CodexMark, GenericMark } from './logos';
 
 /**
  * Renderer-side registry: how each agent's logo is drawn.
@@ -13,6 +13,9 @@ const LOGOS: Record<string, LogoFactory> = {
   claude: (size) => <Burst color="#d97757" size={size} />,
   codex: (size) => <CodexMark color="#9aa2ff" size={size} />,
   antigravity: (size) => <AntigravityMark size={size} />,
+  'antigravity:gemini': (size) => <AntigravityMark size={size} />,
+  'antigravity:argon': (size) => <ArgonMark size={size} />,
+  'antigravity:3p': (size) => <Burst color="#d97757" size={size} />,
 };
 
 export function renderLogo(agent: AgentInfo, size: number): ReactNode {

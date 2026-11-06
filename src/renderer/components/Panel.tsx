@@ -26,7 +26,8 @@ export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel({ ent
   const { agent, snapshot } = entry;
   const windows = snapshot ? [...snapshot.windows].sort((x, y) => (x.order ?? x.minutes) - (y.order ?? y.minutes)) : [];
   const plan = (snapshot?.plan || agent.planLabel).toUpperCase();
-  const connect = CONNECTABLE_AGENTS[agent.id] ?? { name: agent.name, folder: '' };
+  const rootId = agent.id.startsWith('antigravity') ? 'antigravity' : agent.id;
+  const connect = CONNECTABLE_AGENTS[rootId] ?? { name: agent.name, folder: '' };
 
   return (
     <div ref={ref} style={style} id={`p-${agent.id}`} className={`panel open${shown ? ' in' : ''}`} role="dialog" aria-label={`${agent.name} usage limits`}>

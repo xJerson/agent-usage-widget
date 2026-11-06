@@ -83,7 +83,9 @@ describe('parseAntigravityStatusline', () => {
 
   it('keeps a bucket with an unparseable reset time but no resetsAt', () => {
     const s = parse({ quota: { 'gemini-5h': bucket(0.5, 'soon') } })!;
-    expect(s.windows).toEqual([{ minutes: 300, usedPercent: 50, resetsAt: null }]);
+    expect(s.windows).toEqual([
+      { id: 'gemini-5h', label: 'Gemini · 5h', order: 1, minutes: 300, usedPercent: 50, resetsAt: null },
+    ]);
   });
 
   it('accepts epoch seconds or milliseconds as reset_time numbers', () => {

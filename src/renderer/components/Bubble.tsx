@@ -17,11 +17,12 @@ interface Props {
   editing: boolean;
   onToggle(): void;
   onEdit(): void;
+  onContextMenu?(): void;
   /** One-time connector consent: dimmed logo, confirm / cancel buttons and a caption on top of the bubble. */
   consent?: { onAnswer(accept: boolean): void; onInfo(): void } | null;
 }
 
-export function Bubble({ entry, now, open, editing, onToggle, onEdit, consent = null }: Props) {
+export function Bubble({ entry, now, open, editing, onToggle, onEdit, onContextMenu, consent = null }: Props) {
   // Keep the overlay mounted briefly after the answer so it can animate away.
   const [overlay, setOverlay] = useState(false);
   useEffect(() => {
@@ -90,9 +91,15 @@ export function Bubble({ entry, now, open, editing, onToggle, onEdit, consent = 
     window.clearTimeout(timerRef.current);
     onEdit();
   };
+  const handleContextMenu = (e: React.MouseEvent<HTMLButtonElement>): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (editing) return;
+    onContextMenu?.();
+  };
 
   const style = { '--glow': `${a}aa` } as CSSProperties;
-  const gid = `g-${agent.id}`;
+  const gid = `g-${agent.id.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
 
   return (
     <div className="bubble-host">
@@ -103,12 +110,14 @@ export function Bubble({ entry, now, open, editing, onToggle, onEdit, consent = 
       aria-expanded={open}
       aria-controls={`p-${agent.id}`}
       aria-label={`${agent.name} usage, ${Math.round(pct)}%${headState?.limitReached ? ', limit reached' : ''}`}
+      title={onContextMenu ? `${agent.name} (Right-click to expand/collapse models, click for details)` : `${agent.name} (Click for details)`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endPointer}
       onPointerCancel={endPointer}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onContextMenu={handleContextMenu}
     >
       <svg className="ring" width="104" height="104" viewBox="0 0 104 104" aria-hidden="true">
         <defs>

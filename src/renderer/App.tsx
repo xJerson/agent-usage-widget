@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { splitAntigravityEntry } from '../shared/antigravityModels';
 import { connectHintFor } from '../shared/connectHint';
 import { clampScale } from '../shared/geometry';
 import type { ConnectorStatus, ConnectPreview } from '../shared/types';
@@ -21,6 +22,27 @@ export function App() {
   const [prompts, setPrompts] = useState<Record<string, ConnectPreview>>({});
   const [connectors, setConnectors] = useState<Record<string, ConnectorStatus>>({});
   const [natural, setNatural] = useState({ width: 0, height: 0 });
+  const [agyExpanded, setAgyExpanded] = useState(() => {
+    try {
+      return localStorage.getItem('agy_expanded') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleAgyExpanded = useCallback(() => {
+    if (editingRef.current) return;
+    setAgyExpanded((prev) => {
+      const next = !prev;
+      if (!next && openId && openId.startsWith('antigravity:')) {
+        setOpenId(null);
+      }
+      try {
+        localStorage.setItem('agy_expanded', String(next));
+      } catch {}
+      return next;
+    });
+  }, [openId]);
 
   const shellRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -97,7 +119,23 @@ export function App() {
     return () => ro.disconnect();
   }, []);
 
-  const openEntry = entries.find((e) => e.agent.id === openId) ?? null;
+  const openEntry = (() => {
+    if (!openId) return null;
+    const direct = entries.find((e) => e.agent.id === openId);
+    if (direct) {
+      if (openId === 'antigravity' && agyExpanded) {
+        return splitAntigravityEntry(direct).gemini;
+      }
+      return direct;
+    }
+    const agy = entries.find((e) => e.agent.id === 'antigravity');
+    if (!agy) return null;
+    const sub = splitAntigravityEntry(agy);
+    if (openId === 'antigravity:3p') return sub.thirdParty;
+    if (openId === 'antigravity:argon') return sub.argon;
+    if (openId === 'antigravity:gemini') return sub.gemini;
+    return null;
+  })();
 
   // Geometry for the floating windows: the scaled column and the open bubble, in client coordinates.
   const lastLayout = useRef('');
@@ -119,15 +157,16 @@ export function App() {
 
   // Content of the floating panel.
   useEffect(() => {
+    const rootAgentId = openEntry ? (openEntry.agent.id.startsWith('antigravity') ? 'antigravity' : openEntry.agent.id) : null;
     window.widget.floatPanel(
-      openEntry
+      openEntry && rootAgentId
         ? {
             entry: openEntry,
-            preview: prompts[openEntry.agent.id] ?? null,
+            preview: prompts[openEntry.agent.id] ?? prompts[rootAgentId] ?? null,
             hint: connectHintFor({
-              agentId: openEntry.agent.id,
-              status: connectors[openEntry.agent.id] ?? 'no_agent_dir',
-              consentVisible: openEntry.agent.id in prompts,
+              agentId: rootAgentId,
+              status: connectors[rootAgentId] ?? 'no_agent_dir',
+              consentVisible: rootAgentId in prompts,
             }),
           }
         : null,
@@ -175,26 +214,101 @@ export function App() {
       <div className="stage" ref={stageRef} style={stage}>
         <div className="scaler" ref={scalerRef} style={{ transform: `scale(${scale})` }}>
           <div className="column">
-            {entries.map((entry) => (
-              <div className="item" key={entry.agent.id} data-agent={entry.agent.id}>
-                <Bubble
-                  entry={entry}
-                  now={now}
-                  open={openId === entry.agent.id}
-                  editing={editing}
-                  onToggle={() => setOpenId((id) => (id === entry.agent.id ? null : entry.agent.id))}
-                  onEdit={enterEdit}
-                  consent={
-                    prompts[entry.agent.id] && !editing
-                      ? {
-                          onAnswer: (accept) => answerConnect(entry.agent.id, accept),
-                          onInfo: () => setOpenId((id) => (id === entry.agent.id ? null : entry.agent.id)),
-                        }
-                      : null
-                  }
-                />
-              </div>
-            ))}
+            {entries.map((entry) => {
+              if (entry.agent.id === 'antigravity') {
+                const sub = splitAntigravityEntry(entry);
+                if (agyExpanded) {
+                  return (
+                    <div className="antigravity-cluster" key={entry.agent.id}>
+                      <div className="item sub-item in" data-agent="antigravity:3p">
+                        <Bubble
+                          entry={sub.thirdParty}
+                          now={now}
+                          open={openId === 'antigravity:3p'}
+                          editing={editing}
+                          onToggle={() => setOpenId((id) => (id === 'antigravity:3p' ? null : 'antigravity:3p'))}
+                          onEdit={enterEdit}
+                          onContextMenu={toggleAgyExpanded}
+                        />
+                      </div>
+                      <div className="item sub-item in" data-agent="antigravity:argon">
+                        <Bubble
+                          entry={sub.argon}
+                          now={now}
+                          open={openId === 'antigravity:argon'}
+                          editing={editing}
+                          onToggle={() => setOpenId((id) => (id === 'antigravity:argon' ? null : 'antigravity:argon'))}
+                          onEdit={enterEdit}
+                          onContextMenu={toggleAgyExpanded}
+                        />
+                      </div>
+                      <div className="item" data-agent="antigravity">
+                        <Bubble
+                          entry={sub.gemini}
+                          now={now}
+                          open={openId === 'antigravity' || openId === 'antigravity:gemini'}
+                          editing={editing}
+                          onToggle={() => setOpenId((id) => (id === 'antigravity' ? null : 'antigravity'))}
+                          onEdit={enterEdit}
+                          onContextMenu={toggleAgyExpanded}
+                          consent={
+                            prompts[entry.agent.id] && !editing
+                              ? {
+                                  onAnswer: (accept) => answerConnect(entry.agent.id, accept),
+                                  onInfo: () => setOpenId((id) => (id === entry.agent.id ? null : entry.agent.id)),
+                                }
+                              : null
+                          }
+                        />
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="item" key={entry.agent.id} data-agent={entry.agent.id}>
+                    <Bubble
+                      entry={entry}
+                      now={now}
+                      open={openId === entry.agent.id}
+                      editing={editing}
+                      onToggle={() => setOpenId((id) => (id === entry.agent.id ? null : entry.agent.id))}
+                      onEdit={enterEdit}
+                      onContextMenu={toggleAgyExpanded}
+                      consent={
+                        prompts[entry.agent.id] && !editing
+                          ? {
+                              onAnswer: (accept) => answerConnect(entry.agent.id, accept),
+                              onInfo: () => setOpenId((id) => (id === entry.agent.id ? null : entry.agent.id)),
+                            }
+                          : null
+                      }
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <div className="item" key={entry.agent.id} data-agent={entry.agent.id}>
+                  <Bubble
+                    entry={entry}
+                    now={now}
+                    open={openId === entry.agent.id}
+                    editing={editing}
+                    onToggle={() => setOpenId((id) => (id === entry.agent.id ? null : entry.agent.id))}
+                    onEdit={enterEdit}
+                    consent={
+                      prompts[entry.agent.id] && !editing
+                        ? {
+                            onAnswer: (accept) => answerConnect(entry.agent.id, accept),
+                            onInfo: () => setOpenId((id) => (id === entry.agent.id ? null : entry.agent.id)),
+                          }
+                        : null
+                    }
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
         {editing && <EditFrame width={stage.width as number} height={stage.height as number} scale={scale} onScale={setScale} />}
