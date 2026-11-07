@@ -76,16 +76,7 @@ export function FloatApp({ role }: { role: FloatRole }) {
 }
 
 function PanelBody({ data, now, shown }: { data: FloatPanelData; now: number; shown: boolean }) {
-  return (
-    <Panel
-      entry={data.entry}
-      now={now}
-      preview={data.preview}
-      hint={data.hint}
-      shown={shown}
-      antigravityCluster={data.antigravityCluster}
-    />
-  );
+  return <Panel entry={data.entry} now={now} preview={data.preview} hint={data.hint} shown={shown} />;
 }
 
 function ToastBody({ toast, shown }: { toast: ToastMessage; shown: boolean }) {

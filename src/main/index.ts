@@ -91,11 +91,6 @@ async function main(): Promise<void> {
   ipcMain.on(IPC.floatPanel, (e, data: unknown) => own(e) && floats?.setPanel((data ?? null) as never));
   ipcMain.on(IPC.floatToast, (e, toast: unknown) => own(e) && toast && floats?.showToast(toast as never));
   ipcMain.on(IPC.floatBar, (e, state: unknown) => own(e) && floats?.setBar((state ?? null) as never));
-  ipcMain.on(IPC.setPrimaryModel, (_e, agentId: unknown, modelKey: unknown) => {
-    if (typeof agentId === 'string' && typeof modelKey === 'string' && !win.isDestroyed()) {
-      win.webContents.send(IPC.setPrimaryModel, { agentId, modelKey });
-    }
-  });
 
   ipcMain.handle(IPC.usageGet, (e) => (e.sender === win.webContents ? service.current() : []));
   ipcMain.handle(IPC.layoutGet, (e) => ({ scale: e.sender === win.webContents ? controller.scale : 1 }));

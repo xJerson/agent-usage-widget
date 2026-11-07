@@ -2,8 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { splitAntigravityEntry } from '../shared/antigravityModels';
 import { connectHintFor } from '../shared/connectHint';
 import { clampScale } from '../shared/geometry';
-import type { AntigravityClusterData, AntigravityModelKey, ConnectorStatus, ConnectPreview } from '../shared/types';
-import { headWindow, resolveWindow } from '../shared/usage';
+import type { AntigravityModelKey, ConnectorStatus, ConnectPreview } from '../shared/types';
 import { Bubble } from './components/Bubble';
 import { EditFrame } from './components/EditChrome';
 import { useNow, useUsage } from './lib/hooks';
@@ -43,30 +42,23 @@ export function App() {
   }, []);
 
   const selectPrimaryModel = useCallback(
-    (key: AntigravityModelKey, collapse = false) => {
+    (key: AntigravityModelKey, collapseAndOpen = false) => {
       setPrimaryModel(key);
       try {
         localStorage.setItem('agy_primary_model', key);
       } catch {}
       const name = key === 'argon' ? 'Argon 4' : key === '3p' ? 'Claude / 3P' : 'Gemini';
-      showToast(`${name} fijado como modelo principal de Antigravity`);
-      if (collapse) {
+      showToast(`${name} seleccionado`);
+      if (collapseAndOpen) {
         setAgyExpanded(false);
         try {
           localStorage.setItem('agy_expanded', 'false');
         } catch {}
+        setOpenId('antigravity');
       }
     },
     [showToast],
   );
-
-  useEffect(() => {
-    return window.widget.onSetPrimaryModel((agentId, modelKey) => {
-      if (agentId === 'antigravity' && (modelKey === 'gemini' || modelKey === '3p' || modelKey === 'argon')) {
-        selectPrimaryModel(modelKey, false);
-      }
-    });
-  }, [selectPrimaryModel]);
 
   const toggleAgyExpanded = useCallback(() => {
     if (editingRef.current) return;
@@ -172,66 +164,6 @@ export function App() {
     return null;
   })();
 
-  const agyEntry = entries.find((e) => e.agent.id === 'antigravity');
-  const antigravityCluster: AntigravityClusterData | undefined = agyEntry
-    ? (() => {
-        const sub = splitAntigravityEntry(agyEntry);
-        const gHead = sub.gemini.snapshot ? headWindow(sub.gemini.snapshot.windows, now) : null;
-        const pHead = sub.thirdParty.snapshot ? headWindow(sub.thirdParty.snapshot.windows, now) : null;
-        const aHead = sub.argon.snapshot ? headWindow(sub.argon.snapshot.windows, now) : null;
-
-        const gPct = gHead ? resolveWindow(gHead, now).usedPercent : 0;
-        const pPct = pHead ? resolveWindow(pHead, now).usedPercent : 0;
-        const aPct = aHead ? resolveWindow(aHead, now).usedPercent : 0;
-
-        const activeKey: AntigravityModelKey =
-          openId === 'antigravity:argon'
-            ? 'argon'
-            : openId === 'antigravity:3p'
-            ? '3p'
-            : openId === 'antigravity:gemini'
-            ? 'gemini'
-            : primaryModel;
-
-        return {
-          activeKey,
-          primaryKey: primaryModel,
-          models: [
-            {
-              key: 'gemini',
-              name: 'Gemini',
-              planLabel: 'Flash 3.8 & Pro',
-              brand: '#4E82EE',
-              brandLight: '#A87FFB',
-              pct: gPct,
-              cadence: 'Sesión 5h',
-              windows: sub.gemini.snapshot?.windows ?? [],
-            },
-            {
-              key: '3p',
-              name: 'Claude / 3P',
-              planLabel: 'Sonnet & OSS',
-              brand: '#d97757',
-              brandLight: '#f2b08c',
-              pct: pPct,
-              cadence: 'Sesión 5h',
-              windows: sub.thirdParty.snapshot?.windows ?? [],
-            },
-            {
-              key: 'argon',
-              name: 'Argon 4',
-              planLabel: 'WTU Reasoning',
-              brand: '#9333ea',
-              brandLight: '#c084fc',
-              pct: aPct,
-              cadence: 'Semanal',
-              windows: sub.argon.snapshot?.windows ?? [],
-            },
-          ],
-        };
-      })()
-    : undefined;
-
   // Geometry for the floating windows: the scaled column and the open bubble, in client coordinates.
   const lastLayout = useRef('');
   useLayoutEffect(() => {
@@ -253,7 +185,6 @@ export function App() {
   // Content of the floating panel.
   useEffect(() => {
     const rootAgentId = openEntry ? (openEntry.agent.id.startsWith('antigravity') ? 'antigravity' : openEntry.agent.id) : null;
-    const isAgy = openEntry && (openEntry.agent.id === 'antigravity' || openEntry.agent.id.startsWith('antigravity:'));
     window.widget.floatPanel(
       openEntry && rootAgentId
         ? {
@@ -264,11 +195,10 @@ export function App() {
               status: connectors[rootAgentId] ?? 'no_agent_dir',
               consentVisible: rootAgentId in prompts,
             }),
-            antigravityCluster: isAgy ? antigravityCluster : undefined,
           }
         : null,
     );
-  }, [openEntry, prompts, connectors, antigravityCluster]);
+  }, [openEntry, prompts, connectors]);
 
   const enterEdit = useCallback(() => {
     if (editingRef.current) return;
@@ -323,15 +253,16 @@ export function App() {
                             ...sub.thirdParty,
                             agent: {
                               ...sub.thirdParty.agent,
-                              name: primaryModel === '3p' ? '★ Claude 3P' : 'Claude 3P',
+                              name: primaryModel === '3p' ? '✓ Claude 3P' : 'Claude 3P',
                             },
                           }}
+                          logoId="antigravity:3p"
                           now={now}
-                          open={openId === 'antigravity:3p'}
+                          open={false}
                           editing={editing}
-                          onToggle={() => setOpenId((id) => (id === 'antigravity:3p' ? null : 'antigravity:3p'))}
+                          onToggle={() => selectPrimaryModel('3p', true)}
                           onEdit={enterEdit}
-                          onContextMenu={() => selectPrimaryModel('3p', true)}
+                          onContextMenu={toggleAgyExpanded}
                         />
                       </div>
                       <div className="item sub-item in" data-agent="antigravity:argon">
@@ -340,15 +271,16 @@ export function App() {
                             ...sub.argon,
                             agent: {
                               ...sub.argon.agent,
-                              name: primaryModel === 'argon' ? '★ Argon 4' : 'Argon 4',
+                              name: primaryModel === 'argon' ? '✓ Argon 4' : 'Argon 4',
                             },
                           }}
+                          logoId="antigravity:argon"
                           now={now}
-                          open={openId === 'antigravity:argon'}
+                          open={false}
                           editing={editing}
-                          onToggle={() => setOpenId((id) => (id === 'antigravity:argon' ? null : 'antigravity:argon'))}
+                          onToggle={() => selectPrimaryModel('argon', true)}
                           onEdit={enterEdit}
-                          onContextMenu={() => selectPrimaryModel('argon', true)}
+                          onContextMenu={toggleAgyExpanded}
                         />
                       </div>
                       <div className="item" data-agent="antigravity:gemini">
@@ -357,15 +289,16 @@ export function App() {
                             ...sub.gemini,
                             agent: {
                               ...sub.gemini.agent,
-                              name: primaryModel === 'gemini' ? '★ Gemini' : 'Gemini',
+                              name: primaryModel === 'gemini' ? '✓ Gemini' : 'Gemini',
                             },
                           }}
+                          logoId="antigravity:gemini"
                           now={now}
-                          open={openId === 'antigravity' || openId === 'antigravity:gemini'}
+                          open={false}
                           editing={editing}
-                          onToggle={() => setOpenId((id) => (id === 'antigravity:gemini' || id === 'antigravity' ? null : 'antigravity:gemini'))}
+                          onToggle={() => selectPrimaryModel('gemini', true)}
                           onEdit={enterEdit}
-                          onContextMenu={() => selectPrimaryModel('gemini', true)}
+                          onContextMenu={toggleAgyExpanded}
                           consent={
                             prompts[entry.agent.id] && !editing
                               ? {
@@ -403,9 +336,9 @@ export function App() {
                       }}
                       logoId={`antigravity:${primaryModel}`}
                       now={now}
-                      open={openId === 'antigravity' || (openId?.startsWith('antigravity') ?? false)}
+                      open={openId === 'antigravity'}
                       editing={editing}
-                      onToggle={() => setOpenId((id) => (id?.startsWith('antigravity') ? null : 'antigravity'))}
+                      onToggle={() => setOpenId((id) => (id === 'antigravity' ? null : 'antigravity'))}
                       onEdit={enterEdit}
                       onContextMenu={toggleAgyExpanded}
                       consent={

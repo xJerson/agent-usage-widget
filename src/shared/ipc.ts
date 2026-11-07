@@ -39,7 +39,6 @@ export const IPC = {
   floatHidden: 'float:hidden',
   barAnswer: 'float:bar-answer',
   editAnswer: 'widget:edit-answer',
-  setPrimaryModel: 'widget:set-primary-model',
 } as const;
 
 /** Strict API exposed on `window.widget` by the preload script. */
@@ -74,9 +73,6 @@ export interface WidgetApi {
   /** Edit bar window -> main -> bubble window. */
   barAnswer(confirm: boolean): void;
   onEditAnswer(cb: (confirm: boolean) => void): () => void;
-  /** Sets the primary model for multi-model agents (e.g. Antigravity) across windows. */
-  setPrimaryModel(agentId: string, modelKey: string): void;
-  onSetPrimaryModel(cb: (agentId: string, modelKey: string) => void): () => void;
   /** Floating windows: content pushed by main, size report (resolves once the window has its size), fade-out done. */
   onFloatContent(cb: (content: unknown) => void): () => void;
   floatSize(size: Size): Promise<void>;
