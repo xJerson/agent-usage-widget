@@ -96,6 +96,7 @@ export function Bubble({ entry, now, open, editing, onToggle, onEdit, onContextM
   const handleContextMenu = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.preventDefault();
     e.stopPropagation();
+    window.clearTimeout(timerRef.current);
     if (editing) return;
     onContextMenu?.();
   };

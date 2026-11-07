@@ -60,19 +60,26 @@ export function App() {
     [showToast],
   );
 
+  const closeAgyExpanded = useCallback(() => {
+    if (editingRef.current) return;
+    setOpenId(null);
+    setAgyExpanded(false);
+    try {
+      localStorage.setItem('agy_expanded', 'false');
+    } catch {}
+  }, []);
+
   const toggleAgyExpanded = useCallback(() => {
     if (editingRef.current) return;
+    setOpenId(null);
     setAgyExpanded((prev) => {
       const next = !prev;
-      if (!next && openId && openId.startsWith('antigravity:')) {
-        setOpenId(null);
-      }
       try {
         localStorage.setItem('agy_expanded', String(next));
       } catch {}
       return next;
     });
-  }, [openId]);
+  }, []);
 
   const shellRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -147,6 +154,7 @@ export function App() {
 
   const openEntry = (() => {
     if (!openId) return null;
+    if (agyExpanded) return null;
     const direct = entries.find((e) => e.agent.id === openId);
     if (direct) {
       if (openId === 'antigravity') {
@@ -155,12 +163,6 @@ export function App() {
       }
       return direct;
     }
-    const agy = entries.find((e) => e.agent.id === 'antigravity');
-    if (!agy) return null;
-    const sub = splitAntigravityEntry(agy);
-    if (openId === 'antigravity:3p') return sub.thirdParty;
-    if (openId === 'antigravity:argon') return sub.argon;
-    if (openId === 'antigravity:gemini') return sub.gemini;
     return null;
   })();
 
@@ -170,7 +172,7 @@ export function App() {
     const stage = stageRef.current;
     if (!stage) return;
     const r = stage.getBoundingClientRect();
-    const item = openId ? scalerRef.current?.querySelector<HTMLElement>(`[data-agent="${openId}"]`) : null;
+    const item = openId && !agyExpanded ? scalerRef.current?.querySelector<HTMLElement>(`[data-agent="${openId}"]`) : null;
     const b = item?.getBoundingClientRect();
     const layout = {
       stage: { x: r.left, y: r.top, width: r.width, height: r.height },
@@ -262,7 +264,7 @@ export function App() {
                           editing={editing}
                           onToggle={() => selectPrimaryModel('3p', true)}
                           onEdit={enterEdit}
-                          onContextMenu={toggleAgyExpanded}
+                          onContextMenu={closeAgyExpanded}
                         />
                       </div>
                       <div className="item sub-item in" data-agent="antigravity:argon">
@@ -280,7 +282,7 @@ export function App() {
                           editing={editing}
                           onToggle={() => selectPrimaryModel('argon', true)}
                           onEdit={enterEdit}
-                          onContextMenu={toggleAgyExpanded}
+                          onContextMenu={closeAgyExpanded}
                         />
                       </div>
                       <div className="item" data-agent="antigravity:gemini">
@@ -298,7 +300,7 @@ export function App() {
                           editing={editing}
                           onToggle={() => selectPrimaryModel('gemini', true)}
                           onEdit={enterEdit}
-                          onContextMenu={toggleAgyExpanded}
+                          onContextMenu={closeAgyExpanded}
                           consent={
                             prompts[entry.agent.id] && !editing
                               ? {
