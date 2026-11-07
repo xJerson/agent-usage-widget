@@ -42,19 +42,18 @@ export function App() {
   }, []);
 
   const selectPrimaryModel = useCallback(
-    (key: AntigravityModelKey, collapseAndOpen = false) => {
+    (key: AntigravityModelKey, collapse = false) => {
       setPrimaryModel(key);
       try {
         localStorage.setItem('agy_primary_model', key);
       } catch {}
       const name = key === 'argon' ? 'Argon 4' : key === '3p' ? 'Claude / 3P' : 'Gemini';
       showToast(`${name} seleccionado`);
-      if (collapseAndOpen) {
+      if (collapse) {
         setAgyExpanded(false);
         try {
           localStorage.setItem('agy_expanded', 'false');
         } catch {}
-        setOpenId('antigravity');
       }
     },
     [showToast],
