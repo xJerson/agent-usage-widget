@@ -40,9 +40,9 @@ export function splitAntigravityEntry(agyEntry: UsageEntry): SplitAntigravityRes
   const snap = agyEntry.snapshot;
   const windows = snap?.windows ?? [];
 
-  const geminiWindows = windows.filter((w) => w.id === 'gemini-5h' || w.id === 'gemini-weekly');
-  const argonWindows = windows.filter((w) => w.id === 'gemini-argon-wtu-weekly');
-  const thirdPartyWindows = windows.filter((w) => w.id === '3p-5h' || w.id === '3p-weekly');
+  const argonWindows = windows.filter((w) => w.id?.includes('argon'));
+  const thirdPartyWindows = windows.filter((w) => w.id?.startsWith('3p-'));
+  const geminiWindows = windows.filter((w) => !w.id?.includes('argon') && !w.id?.startsWith('3p-'));
 
   return {
     gemini: {

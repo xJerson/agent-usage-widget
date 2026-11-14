@@ -131,6 +131,23 @@ function agyPlan(v) {
   return t && t.length <= AGY_MAX_PLAN && !/[\u0000-\u001f]/.test(t) ? t : undefined;
 }
 
+function agyModelName(raw) {
+  if (!isObject(raw)) return undefined;
+  return agyPlan(raw.display_name) || agyPlan(raw.id);
+}
+
+function collectAgyKeys(storedQuota, incomingQuota) {
+  const keys = new Set(AGY_KEYS);
+  for (const src of [storedQuota, incomingQuota]) {
+    if (!isObject(src)) continue;
+    for (const k of Object.keys(src)) {
+      if (keys.size >= 24) break;
+      if (k && k.length <= AGY_MAX_PLAN && !/[\u0000-\u001f]/.test(k)) keys.add(k);
+    }
+  }
+  return keys;
+}
+
 // -> { window, fromIncoming } (window undefined when nothing live is left)
 function mergeAgyBucket(stored, incoming, nowMs) {
   const s = stored && stored.ms > nowMs ? stored : null;
@@ -155,7 +172,7 @@ function mergeAntigravityPayload(storedText, incomingText, nowMs) {
   const quota = {};
   let accepted = false;
   let usable = false;
-  for (const key of AGY_KEYS) {
+  for (const key of collectAgyKeys(storedQuota, incomingQuota)) {
     const inc = agyBucket(incomingQuota[key]);
     if (inc) usable = true;
     const m = mergeAgyBucket(agyBucket(storedQuota[key]), inc, nowMs);
@@ -164,8 +181,10 @@ function mergeAntigravityPayload(storedText, incomingText, nowMs) {
   }
   if (!usable) return { text: null, accepted: false }; // nothing the widget can use in this payload
   const plan = agyPlan(incoming.plan_tier) || (stored ? agyPlan(stored.plan_tier) : undefined);
+  const modelName = agyModelName(incoming.model) || (stored ? agyPlan(stored.model_name) : undefined);
   const out = { v: 1 };
   if (plan) out.plan_tier = plan;
+  if (modelName) out.model_name = modelName;
   out.quota = quota;
   out.updated_at = nowMs;
   return { text: JSON.stringify(out), accepted: accepted };

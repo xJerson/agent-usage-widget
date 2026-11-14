@@ -139,4 +139,29 @@ describe('ensureAntigravityWindows', () => {
   it('stays empty when there is no window at all (nothing to show yet)', () => {
     expect(ensureAntigravityWindows([])).toEqual([]);
   });
+
+  it('automatically parses active model_name and unknown quota buckets', () => {
+    const raw = JSON.stringify({
+      plan_tier: 'Google AI Pro',
+      model_name: 'Gemini 4 Hydrogen (Medium)',
+      updated_at: 1_700_000_000_000,
+      quota: {
+        'gemini-5h': { remaining_fraction: 0.9, reset_time: '2026-11-14T20:00:00Z' },
+        'gemini-hydrogen-5h': { remaining_fraction: 0.4, reset_time: '2026-11-14T20:00:00Z' },
+      },
+    });
+    const parsed = parseAntigravityStatusline(raw, 0);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.windows[0]!.models).toBe('Gemini 4 Hydrogen, Gemini 3.8 Flash, Pro');
+    const extra = parsed!.windows.find((w) => w.id === 'gemini-hydrogen-5h');
+    expect(extra).toMatchObject({
+      id: 'gemini-hydrogen-5h',
+      label: 'Gemini Hydrogen · 5h',
+      models: 'Gemini Hydrogen',
+      minutes: 300,
+      usedPercent: 60,
+    });
+    const ensured = ensureAntigravityWindows(parsed!.windows);
+    expect(ensured.some((w) => w.id === 'gemini-hydrogen-5h')).toBe(true);
+  });
 });
