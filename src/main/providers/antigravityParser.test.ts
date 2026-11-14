@@ -152,7 +152,7 @@ describe('ensureAntigravityWindows', () => {
     });
     const parsed = parseAntigravityStatusline(raw, 0);
     expect(parsed).not.toBeNull();
-    expect(parsed!.windows[0]!.models).toBe('Gemini 4 Hydrogen, Gemini 3.8 Flash, Pro');
+    expect(parsed!.windows[0]!.models).toBe('Gemini 4 Hydrogen');
     const extra = parsed!.windows.find((w) => w.id === 'gemini-hydrogen-5h');
     expect(extra).toMatchObject({
       id: 'gemini-hydrogen-5h',

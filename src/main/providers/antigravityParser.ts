@@ -117,8 +117,8 @@ export function parseAntigravityStatusline(raw: string, fallbackUpdatedAt: numbe
       const remaining = bucket['remaining_fraction'];
       if (typeof remaining !== 'number' || !Number.isFinite(remaining)) continue;
       const resolvedModels =
-        isGeminiModel && activeModel && (key === 'gemini-5h' || key === 'gemini-weekly') && !models.includes(activeModel)
-          ? `${activeModel}, ${models}`
+        isGeminiModel && activeModel && (key === 'gemini-5h' || key === 'gemini-weekly')
+          ? activeModel
           : models;
       windows.push({
         id: key,
