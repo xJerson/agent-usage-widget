@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { splitAntigravityEntry } from '../shared/antigravityModels';
 import { connectHintFor } from '../shared/connectHint';
 import { clampScale } from '../shared/geometry';
@@ -151,7 +151,7 @@ export function App() {
     return () => ro.disconnect();
   }, []);
 
-  const openEntry = (() => {
+  const openEntry = useMemo(() => {
     if (!openId) return null;
     if (agyExpanded) return null;
     const direct = entries.find((e) => e.agent.id === openId);
@@ -163,7 +163,7 @@ export function App() {
       return direct;
     }
     return null;
-  })();
+  }, [openId, agyExpanded, entries, primaryModel]);
 
   // Geometry for the floating windows: the scaled column and the open bubble, in client coordinates.
   const lastLayout = useRef('');

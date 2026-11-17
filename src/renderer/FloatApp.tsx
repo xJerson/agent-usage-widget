@@ -36,7 +36,7 @@ export function FloatApp({ role }: { role: FloatRole }) {
           return;
         }
         setContent(c);
-        setPhase((p) => (p === 'in' || p === 'out' ? 'in' : 'measuring'));
+        setPhase((p) => (p === 'in' ? 'in' : 'measuring'));
       }),
     [],
   );

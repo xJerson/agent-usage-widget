@@ -2,6 +2,7 @@ import { BrowserWindow, ipcMain, screen, type IpcMainEvent, type IpcMainInvokeEv
 import { floatContentSize, floatWindowBounds, placeAbove, placePanel } from '../shared/geometry';
 import { FLOAT_PADDING, IPC } from '../shared/ipc';
 import type { FloatBarState, FloatLayout, FloatPanelData, FloatRole, Rect, Size, ToastMessage } from '../shared/types';
+import { keepOnTop } from './topmost';
 
 const PANEL_GAP = 16;
 const TOAST_GAP = 10;
@@ -136,6 +137,10 @@ export class FloatWindows {
     const win = await this.ensureWindow(s);
     if (s.content !== content) return; // superseded while the window was loading
     win.webContents.send(IPC.floatContent, content);
+    if (s.shown && !win.isDestroyed()) {
+      if (!win.isVisible()) win.showInactive();
+      keepOnTop(win);
+    }
   }
 
   private hide(s: Slot): void {
@@ -156,15 +161,19 @@ export class FloatWindows {
 
   private async onSize(e: IpcMainInvokeEvent, raw: unknown): Promise<void> {
     const s = this.slotFor(e);
-    if (!s || typeof raw !== 'object' || raw === null) return;
+    if (!s || s.content === null || typeof raw !== 'object' || raw === null) return;
     const { width, height } = raw as { width?: unknown; height?: unknown };
     if (typeof width !== 'number' || typeof height !== 'number' || !(width > 0) || !(height > 0)) return;
     s.size = { width: Math.ceil(width), height: Math.ceil(height) };
     if (!this.layout) await new Promise<void>((r) => this.layoutWaiters.push(r)); // cannot be placed before the bubbles report where they are
+    if (s.content === null) return; // closed while waiting for layout
     this.place(s, true);
-    if (s.content !== null && s.win && !s.win.isDestroyed() && !s.shown) {
-      s.shown = true;
-      s.win.showInactive(); // content is still invisible (opacity 0) until the renderer sees this reply
+    if (s.win && !s.win.isDestroyed()) {
+      if (!s.shown || !s.win.isVisible()) {
+        s.shown = true;
+        s.win.showInactive(); // content is still invisible (opacity 0) until the renderer sees this reply
+      }
+      keepOnTop(s.win);
     }
     if (s.role !== 'toast') this.place(this.slots.toast); // the toast stacks above the edit bar when both are visible
   }

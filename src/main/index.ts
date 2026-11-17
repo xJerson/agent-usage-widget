@@ -189,16 +189,22 @@ async function main(): Promise<void> {
       screen.on('display-removed', reassert);
       screen.on('display-metrics-changed', reassert);
       win.on('always-on-top-changed', onTopChanged);
+      win.on('focus', reassert);
+      win.on('show', reassert);
       return () => {
         powerMonitor.off('resume', reassert);
         powerMonitor.off('unlock-screen', reassert);
         screen.off('display-added', reassert);
         screen.off('display-removed', reassert);
         screen.off('display-metrics-changed', reassert);
-        if (!win.isDestroyed()) win.off('always-on-top-changed', onTopChanged);
+        if (!win.isDestroyed()) {
+          win.off('always-on-top-changed', onTopChanged);
+          win.off('focus', reassert);
+          win.off('show', reassert);
+        }
       };
     },
-    intervalMs: 30_000,
+    intervalMs: 10_000,
   });
 
   app.on('second-instance', () => {
