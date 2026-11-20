@@ -123,6 +123,36 @@ export function placePanel(i: PanelPlacementInput): Point & { side: 'left' | 'ri
   return { x, y, side };
 }
 
+export interface PanelAbovePlacementInput {
+  /** Vertical extent of the SCALED horizontal row on screen. */
+  rowTop: number;
+  rowBottom: number;
+  /** Screen X of the center of the bubble the panel belongs to. */
+  bubbleCenterX: number;
+  /** Fixed content size of the panel (never scaled). */
+  size: Size;
+  workArea: Rect;
+  gap: number;
+}
+
+/**
+ * Top-left of the (fixed-size) panel content on screen for horizontal mode. It sits ABOVE the row, horizontally
+ * centered with its bubble, with the gap measured from the scaled row top edge. If there is no room above it flips
+ * below, and it is always kept inside the work area.
+ */
+export function placePanelAbove(i: PanelAbovePlacementInput): Point & { side: 'top' | 'bottom' } {
+  const wa = i.workArea;
+  const aboveY = i.rowTop - i.gap - i.size.height;
+  const belowY = i.rowBottom + i.gap;
+  const fitsAbove = aboveY >= wa.y;
+  const fitsBelow = belowY + i.size.height <= wa.y + wa.height;
+  const side = !fitsAbove && fitsBelow ? 'bottom' : 'top';
+  const y = clampTo(side === 'top' ? aboveY : belowY, wa.y, Math.max(wa.y, wa.y + wa.height - i.size.height));
+  const rawX = Math.round(i.bubbleCenterX - i.size.width / 2);
+  const x = clampTo(rawX, wa.x, Math.max(wa.x, wa.x + wa.width - i.size.width));
+  return { x, y, side };
+}
+
 /** Top-left of a small floating element (toast, edit bar) right-aligned above the scaled stack. */
 export function placeAbove(i: { stageRight: number; stageTop: number; size: Size; gap: number; workArea: Rect }): Point {
   const wa = i.workArea;

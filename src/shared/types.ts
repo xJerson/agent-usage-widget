@@ -71,8 +71,11 @@ export interface Size {
 }
 export interface Rect extends Point, Size {}
 
+export type Orientation = 'vertical' | 'horizontal';
+
 export interface LayoutState {
   scale: number;
+  orientation: Orientation;
 }
 
 /** `no_agent_dir`: the agent's data folder (e.g. ~/.claude) does not exist, so there is nothing to connect. */
@@ -110,10 +113,12 @@ export interface FloatPanelData {
 
 /** Geometry the bubble window reports (client coordinates, already scaled) so floating windows can be placed. */
 export interface FloatLayout {
-  /** The scaled column of bubbles. */
+  /** The scaled column or row of bubbles. */
   stage: Rect;
   /** The bubble the open panel belongs to, if any. */
   bubble: Rect | null;
+  /** Layout orientation of the bubbles: vertical (panel to left/right) or horizontal (panel above/below). */
+  orientation?: Orientation;
 }
 
 export type FloatRole = 'panel' | 'toast' | 'bar';

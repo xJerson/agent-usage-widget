@@ -31,14 +31,15 @@ body {
   display: flex; flex-direction: column; align-items: flex-end;
   transform-origin: bottom right;
 }
-/* Bubbles stack in a column (top to bottom in detection order). The gap leaves room for the name tag above and the
+/* Bubbles stack in a column (vertical) or a row (horizontal). The gap leaves room for the name tag above and the
    percentage chip below each bubble. */
 .column { display: flex; flex-direction: column; align-items: flex-end; gap: 32px; padding: 12px 0 12px; }
+.column.horizontal { flex-direction: row; align-items: flex-end; gap: 32px; padding: 12px 12px 12px; }
 .item { position: relative; width: 104px; height: 104px; flex: none; }
 .item > .bubble-host { position: absolute; inset: 0; }
 body.dragging, body.dragging .bubble { cursor: grabbing; }
 
-/* Antigravity expanded model row */
+/* Antigravity expanded model row (vertical mode -> expands left; horizontal mode -> expands upward) */
 .antigravity-cluster {
   display: flex;
   flex-direction: row;
@@ -46,13 +47,32 @@ body.dragging, body.dragging .bubble { cursor: grabbing; }
   justify-content: flex-end;
   gap: 24px;
 }
+.column.horizontal .antigravity-cluster {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 24px;
+}
 .sub-item.in {
   animation: sub-pop-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.25) forwards;
+}
+.column.horizontal .sub-item.in {
+  animation: sub-pop-up 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.25) forwards;
 }
 @keyframes sub-pop-in {
   from {
     opacity: 0;
     transform: scale(0.6) translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes sub-pop-up {
+  from {
+    opacity: 0;
+    transform: scale(0.6) translateY(28px);
   }
   to {
     opacity: 1;

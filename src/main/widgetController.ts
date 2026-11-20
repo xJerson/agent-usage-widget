@@ -1,7 +1,7 @@
 import { BrowserWindow, screen } from 'electron';
 import { clampAnchor, clampScale, defaultAnchor, windowBoundsFor } from '../shared/geometry';
 import { IPC, WINDOW_PADDING } from '../shared/ipc';
-import type { Point, Size } from '../shared/types';
+import type { Orientation, Point, Size } from '../shared/types';
 import { loadLayout, saveLayout, type PersistedLayout } from './layoutStore';
 
 /**
@@ -41,6 +41,17 @@ export class WidgetController {
     return this.layout.scale;
   }
 
+  get orientation(): Orientation {
+    return this.layout.orientation;
+  }
+
+  setOrientation(orientation: Orientation): void {
+    if (this.layout.orientation === orientation) return;
+    this.layout.orientation = orientation;
+    this.persist();
+    this.pushLayout();
+  }
+
   /** Where the content's bottom-right corner is right now, clamped to the work area of its display. */
   private effectiveAnchor(): Point {
     const home = this.layout.anchor ?? defaultAnchor(screen.getPrimaryDisplay().workArea);
@@ -60,11 +71,13 @@ export class WidgetController {
   }
 
   private persist(): void {
-    saveLayout(this.layoutFile, { anchor: this.effectiveAnchor(), scale: this.layout.scale });
+    saveLayout(this.layoutFile, { anchor: this.effectiveAnchor(), scale: this.layout.scale, orientation: this.layout.orientation });
   }
 
   private pushLayout(): void {
-    if (!this.window.isDestroyed()) this.window.webContents.send(IPC.layoutChanged, { scale: this.layout.scale });
+    if (!this.window.isDestroyed()) {
+      this.window.webContents.send(IPC.layoutChanged, { scale: this.layout.scale, orientation: this.layout.orientation });
+    }
   }
 
   reportSize(size: Size): void {
@@ -110,7 +123,7 @@ export class WidgetController {
       this.layout.anchor = this.effectiveAnchor();
       this.persist();
     } else {
-      this.layout = { anchor: backup.anchor, scale: backup.scale };
+      this.layout = { anchor: backup.anchor, scale: backup.scale, orientation: this.layout.orientation };
       this.pushLayout();
     }
     this.apply();

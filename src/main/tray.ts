@@ -1,5 +1,5 @@
 import { app, Menu, nativeImage, Tray } from 'electron';
-import type { ConnectorStatus } from '../shared/types';
+import type { ConnectorStatus, Orientation } from '../shared/types';
 
 /** Draws a small usage ring (coral arc over a dim track) as a raw BGRA bitmap, so no image asset is needed. */
 function drawIcon(size: number): Electron.NativeImage {
@@ -32,6 +32,8 @@ function drawIcon(size: number): Electron.NativeImage {
 export interface TrayActions {
   editLayout(): void;
   resetPosition(): void;
+  orientation(): Orientation;
+  setOrientation(orientation: Orientation): void;
   /** One entry per agent that can be connected (empty in demo mode). */
   connectors(): Array<{ agentId: string; name: string; status: ConnectorStatus }>;
   connect(agentId: string): void;
@@ -60,6 +62,29 @@ export function createTray(actions: TrayActions): { tray: Tray; refresh(): void 
       ...connectItems(),
       { label: 'Edit size and position', click: actions.editLayout },
       { label: 'Reset position', click: actions.resetPosition },
+      {
+        label: 'Orientation',
+        submenu: [
+          {
+            label: 'Vertical',
+            type: 'radio',
+            checked: actions.orientation() === 'vertical',
+            click: () => {
+              actions.setOrientation('vertical');
+              tray.setContextMenu(build());
+            },
+          },
+          {
+            label: 'Horizontal',
+            type: 'radio',
+            checked: actions.orientation() === 'horizontal',
+            click: () => {
+              actions.setOrientation('horizontal');
+              tray.setContextMenu(build());
+            },
+          },
+        ],
+      },
       {
         label: 'Start with Windows',
         type: 'checkbox',

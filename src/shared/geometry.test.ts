@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampAnchor, clampScale, defaultAnchor, floatContentSize, floatWindowBounds, placeAbove, placePanel, resizeFromCorner, windowBoundsFor } from './geometry';
+import { clampAnchor, clampScale, defaultAnchor, floatContentSize, floatWindowBounds, placeAbove, placePanel, placePanelAbove, resizeFromCorner, windowBoundsFor } from './geometry';
 import { FLOAT_PADDING } from './ipc';
 
 const wa = { x: 0, y: 0, width: 1920, height: 1040 };
@@ -166,6 +166,26 @@ describe('placePanel (fixed-size panel next to the scaled column)', () => {
     const left = { x: -1920, y: 0, width: 1920, height: 1080 };
     const p = placePanel({ ...base, workArea: left, columnLeft: -100, columnRight: -8, bubbleCenterY: 500 });
     expect(p).toEqual({ x: -100 - 16 - 320, y: 500 - 150, side: 'left' });
+  });
+});
+
+describe('placePanelAbove (horizontal mode)', () => {
+  const size = { width: 340, height: 300 };
+  const base = { size, workArea: wa, gap: 16 };
+
+  it('sits above the horizontal row centered on the bubble', () => {
+    const p = placePanelAbove({ ...base, rowTop: 900, rowBottom: 1004, bubbleCenterX: 1600 });
+    expect(p).toEqual({ x: 1600 - 170, y: 900 - 16 - 300, side: 'top' });
+  });
+
+  it('flips below the row when there is no room above', () => {
+    const p = placePanelAbove({ ...base, rowTop: 50, rowBottom: 154, bubbleCenterX: 1000 });
+    expect(p).toEqual({ x: 1000 - 170, y: 154 + 16, side: 'bottom' });
+  });
+
+  it('clamps horizontally inside the work area', () => {
+    expect(placePanelAbove({ ...base, rowTop: 900, rowBottom: 1004, bubbleCenterX: 1900 }).x).toBe(1920 - 340);
+    expect(placePanelAbove({ ...base, rowTop: 900, rowBottom: 1004, bubbleCenterX: 20 }).x).toBe(0);
   });
 });
 

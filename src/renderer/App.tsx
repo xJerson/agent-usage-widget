@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { splitAntigravityEntry } from '../shared/antigravityModels';
 import { connectHintFor } from '../shared/connectHint';
 import { clampScale } from '../shared/geometry';
-import type { AntigravityModelKey, ConnectorStatus, ConnectPreview } from '../shared/types';
+import type { AntigravityModelKey, ConnectorStatus, ConnectPreview, Orientation } from '../shared/types';
 import { Bubble } from './components/Bubble';
 import { EditFrame } from './components/EditChrome';
 import { useNow, useUsage } from './lib/hooks';
@@ -18,6 +18,7 @@ export function App() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [scale, setScale] = useState(1);
+  const [orientation, setOrientation] = useState<Orientation>('vertical');
   // Per agent id: the consent prompts waiting for an answer, and each connector's status.
   const [prompts, setPrompts] = useState<Record<string, ConnectPreview>>({});
   const [connectors, setConnectors] = useState<Record<string, ConnectorStatus>>({});
@@ -103,10 +104,16 @@ export function App() {
     window.widget.answerConnect(agentId, accept);
   }, []);
 
-  // Persisted scale + restores after a cancelled edit.
+  // Persisted scale & orientation + restores after a cancelled edit.
   useEffect(() => {
-    void window.widget.getLayout().then((l) => setScale(clampScale(l.scale)));
-    return window.widget.onLayout((l) => setScale(clampScale(l.scale)));
+    void window.widget.getLayout().then((l) => {
+      setScale(clampScale(l.scale));
+      setOrientation(l.orientation === 'horizontal' ? 'horizontal' : 'vertical');
+    });
+    return window.widget.onLayout((l) => {
+      setScale(clampScale(l.scale));
+      setOrientation(l.orientation === 'horizontal' ? 'horizontal' : 'vertical');
+    });
   }, []);
 
   // Toasts when agents appear or disappear.
@@ -176,6 +183,7 @@ export function App() {
     const layout = {
       stage: { x: r.left, y: r.top, width: r.width, height: r.height },
       bubble: b ? { x: b.left, y: b.top, width: b.width, height: b.height } : null,
+      orientation,
     };
     const key = JSON.stringify(layout);
     if (key === lastLayout.current) return;
@@ -241,7 +249,7 @@ export function App() {
     <div className="shell" ref={shellRef}>
       <div className="stage" ref={stageRef} style={stage}>
         <div className="scaler" ref={scalerRef} style={{ transform: `scale(${scale})` }}>
-          <div className="column">
+          <div className={`column ${orientation}`}>
             {entries.map((entry) => {
               if (entry.agent.id === 'antigravity') {
                 const sub = splitAntigravityEntry(entry);

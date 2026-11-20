@@ -93,7 +93,9 @@ async function main(): Promise<void> {
   ipcMain.on(IPC.floatBar, (e, state: unknown) => own(e) && floats?.setBar((state ?? null) as never));
 
   ipcMain.handle(IPC.usageGet, (e) => (e.sender === win.webContents ? service.current() : []));
-  ipcMain.handle(IPC.layoutGet, (e) => ({ scale: e.sender === win.webContents ? controller.scale : 1 }));
+  ipcMain.handle(IPC.layoutGet, (e) =>
+    e.sender === win.webContents ? { scale: controller.scale, orientation: controller.orientation } : { scale: 1, orientation: 'vertical' },
+  );
   ipcMain.on(IPC.reportSize, (e, size: unknown) => {
     if (!own(e) || typeof size !== 'object' || size === null) return;
     const { width, height } = size as { width?: unknown; height?: unknown };
@@ -156,6 +158,8 @@ async function main(): Promise<void> {
   const trayHandle = createTray({
     editLayout: () => controller.requestEdit(),
     resetPosition: () => controller.resetPosition(),
+    orientation: () => controller.orientation,
+    setOrientation: (o) => controller.setOrientation(o),
     connectors: () => connectors.map(({ agent, service }) => ({ agentId: agent.id, name: agent.name, status: service.status })),
     connect: (agentId) => void connect.get(agentId)?.requestPrompt(),
     disconnect: (agentId) => void connect.get(agentId)?.disconnect(),

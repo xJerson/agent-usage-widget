@@ -1,5 +1,5 @@
 import { BrowserWindow, ipcMain, screen, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron';
-import { floatContentSize, floatWindowBounds, placeAbove, placePanel } from '../shared/geometry';
+import { floatContentSize, floatWindowBounds, placeAbove, placePanel, placePanelAbove } from '../shared/geometry';
 import { FLOAT_PADDING, IPC } from '../shared/ipc';
 import type { FloatBarState, FloatLayout, FloatPanelData, FloatRole, Rect, Size, ToastMessage } from '../shared/types';
 import { keepOnTop } from './topmost';
@@ -199,8 +199,13 @@ export class FloatWindows {
     let pos = { x: 0, y: 0 };
     if (s.role === 'panel') {
       const b = this.layout.bubble;
-      const bubbleCenterY = b ? mb.y + b.y + b.height / 2 : stage.y + stage.height / 2;
-      pos = placePanel({ columnLeft: stage.x, columnRight: stage.x + stage.width, bubbleCenterY, size: content, workArea: wa, gap: PANEL_GAP });
+      if (this.layout.orientation === 'horizontal') {
+        const bubbleCenterX = b ? mb.x + b.x + b.width / 2 : stage.x + stage.width / 2;
+        pos = placePanelAbove({ rowTop: stage.y, rowBottom: stage.y + stage.height, bubbleCenterX, size: content, workArea: wa, gap: PANEL_GAP });
+      } else {
+        const bubbleCenterY = b ? mb.y + b.y + b.height / 2 : stage.y + stage.height / 2;
+        pos = placePanel({ columnLeft: stage.x, columnRight: stage.x + stage.width, bubbleCenterY, size: content, workArea: wa, gap: PANEL_GAP });
+      }
     } else if (s.role === 'bar') {
       pos = placeAbove({ stageRight: stage.x + stage.width, stageTop: stage.y, size: content, gap: BAR_GAP, workArea: wa });
     } else {
